@@ -71,9 +71,13 @@ void ItemUpgrade::LoadConfig(bool reload)
 {
     cfg.Initialize();
     LoadAllowedStats(cfg.GetStringConfig(CONFIG_ITEM_UPGRADE_ALLOWED_STATS));
-    LoadWeaponUpgradePercents(cfg.GetStringConfig(CONFIG_ITEM_UPGRADE_WEAPON_DAMAGE_PERCENTS));
+    LoadWeaponUpgradePercents(weaponUpgradeStats, characterWeaponUpgradeData, cfg.GetStringConfig(CONFIG_ITEM_UPGRADE_WEAPON_DAMAGE_PERCENTS));
+    LoadWeaponUpgradePercents(weaponSpeedUpgradeStats, characterWeaponSpeedUpgradeData, cfg.GetStringConfig(CONFIG_ITEM_UPGRADE_WEAPON_SPEED_PERCENTS));
     if (reload)
+    {
         BuildWeaponUpgradeReqs();
+        BuildWeaponSpeedUpgradeReqs();
+    }
 }
 
 void ItemUpgrade::LoadFromDB(bool reload)
@@ -101,6 +105,7 @@ void ItemUpgrade::LoadFromDB(bool reload)
     LoadCharacterUpgradeData();
 
     LoadCharacterWeaponUpgradeData();
+    LoadCharacterWeaponSpeedUpgradeData();
 
     CreateUpgradesPctMap();
 }
@@ -213,6 +218,7 @@ void ItemUpgrade::CleanupDB(bool reload)
     {
         trans->Append("DELETE FROM character_item_upgrade WHERE NOT EXISTS (SELECT 1 FROM item_instance WHERE item_instance.guid = character_item_upgrade.item_guid)");
         trans->Append("DELETE FROM character_weapon_upgrade WHERE NOT EXISTS (SELECT 1 FROM item_instance WHERE item_instance.guid = character_weapon_upgrade.item_guid)");
+        trans->Append("DELETE FROM character_weapon_speed_upgrade WHERE NOT EXISTS (SELECT 1 FROM item_instance WHERE item_instance.guid = character_weapon_speed_upgrade.item_guid)");
     }
     trans->Append("DELETE FROM mod_item_upgrade_allowed_stats_items WHERE stat_id NOT IN (SELECT id FROM mod_item_upgrade_stats)");
     trans->Append("DELETE FROM mod_item_upgrade_blacklisted_stats_items WHERE stat_id NOT IN (SELECT id FROM mod_item_upgrade_stats)");
@@ -452,10 +458,10 @@ void ItemUpgrade::LoadCharacterWeaponUpgradeData()
         CharacterUpgrade characterUpgrade;
         characterUpgrade.guid = guidLow;
         characterUpgrade.itemGuid = itemGuid;
-        characterUpgrade.upgradeStat = FindWeaponUpgradeStat(perc);
+        characterUpgrade.upgradeStat = FindWeaponUpgradeStat(weaponUpgradeStats, perc);
         if (characterUpgrade.upgradeStat == nullptr)
         {
-            characterUpgrade.upgradeStat = FindNearestWeaponUpgradeStat(perc);
+            characterUpgrade.upgradeStat = FindNearestWeaponUpgradeStat(weaponUpgradeStats, perc);
             if (characterUpgrade.upgradeStat == nullptr) {
                 LOG_ERROR("sql.sql", "Table `character_weapon_upgrade` has invalid `upgrade_perc` {}, there is no other near percent that can be chosen, skip", perc);
                 continue;
@@ -469,6 +475,52 @@ void ItemUpgrade::LoadCharacterWeaponUpgradeData()
     } while (result->NextRow());
 
     LOG_INFO("server.loading", ">> Loaded {} character weapon item upgrades in {} ms", count, GetMSTimeDiffToNow(oldMSTime));
+    LOG_INFO("server.loading", " ");
+}
+
+void ItemUpgrade::LoadCharacterWeaponSpeedUpgradeData()
+{
+    characterWeaponSpeedUpgradeData.clear();
+
+    uint32 oldMSTime = getMSTime();
+
+    QueryResult result = CharacterDatabase.Query("SELECT guid, item_guid, upgrade_perc FROM character_weapon_speed_upgrade");
+    if (!result)
+    {
+        LOG_INFO("server.loading", ">> Loaded 0 character weapon speed upgrades.");
+        LOG_INFO("server.loading", " ");
+        return;
+    }
+
+    uint32 count = 0;
+    do
+    {
+        Field* fields = result->Fetch();
+
+        uint32 guidLow = fields[0].Get<uint32>();
+        ObjectGuid itemGuid = ObjectGuid::Create<HighGuid::Item>(fields[1].Get<uint32>());
+        float perc = fields[2].Get<float>();
+
+        CharacterUpgrade characterUpgrade;
+        characterUpgrade.guid = guidLow;
+        characterUpgrade.itemGuid = itemGuid;
+        characterUpgrade.upgradeStat = FindWeaponUpgradeStat(weaponSpeedUpgradeStats, perc);
+        if (characterUpgrade.upgradeStat == nullptr)
+        {
+            characterUpgrade.upgradeStat = FindNearestWeaponUpgradeStat(weaponSpeedUpgradeStats, perc);
+            if (characterUpgrade.upgradeStat == nullptr) {
+                LOG_ERROR("sql.sql", "Table `character_weapon_speed_upgrade` has invalid `upgrade_perc` {}, there is no other near percent that can be chosen, skip", perc);
+                continue;
+            }
+            else
+                LOG_INFO("sql.sql", "Table `character_weapon_speed_upgrade` has invalid `upgrade_perc` {} but a near percentage was chosen: {}", perc, characterUpgrade.upgradeStat->statModPct);
+        }
+        characterUpgrade.upgradeStatModPct = perc;
+        characterWeaponSpeedUpgradeData[guidLow].push_back(characterUpgrade);
+        count++;
+    } while (result->NextRow());
+
+    LOG_INFO("server.loading", ">> Loaded {} character weapon speed upgrades in {} ms", count, GetMSTimeDiffToNow(oldMSTime));
     LOG_INFO("server.loading", " ");
 }
 
@@ -668,6 +720,29 @@ void ItemUpgrade::BuildUpgradableItemCatalogue(const Player* player, PagedDataTy
     pagedData.SortAndCalculateTotals();
 }
 
+void ItemUpgrade::BuildUpgradableWeaponSpeedItemCatalogue(const Player* player)
+{
+    PagedData& pagedData = GetPagedData(player);
+    pagedData.Reset();
+    pagedData.item.guid = ObjectGuid::Empty;
+    pagedData.upgradeStat = nullptr;
+    pagedData.type = PAGED_DATA_TYPE_WEAPON_SPEED_ITEMS;
+
+    Item* mainHandItem = player->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_MAINHAND);
+    if (IsValidWeaponForSpeedUpgrade(mainHandItem, player))
+        AddItemToPagedData(mainHandItem, player, pagedData);
+
+    Item* offHandItem = player->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_OFFHAND);
+    if (IsValidWeaponForSpeedUpgrade(offHandItem, player))
+        AddItemToPagedData(offHandItem, player, pagedData);
+
+    Item* rangedItem = player->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_RANGED);
+    if (IsValidWeaponForSpeedUpgrade(rangedItem, player))
+        AddItemToPagedData(rangedItem, player, pagedData);
+
+    pagedData.SortAndCalculateTotals();
+}
+
 bool ItemUpgrade::IsValidItemForUpgrade(const Item* item, const Player* player) const
 {
     if (!item)
@@ -711,6 +786,30 @@ bool ItemUpgrade::IsValidWeaponForUpgrade(const Item* item, const Player* player
     return false;
 }
 
+bool ItemUpgrade::IsValidWeaponForSpeedUpgrade(const Item* item, const Player* player) const
+{
+    if (!item)
+        return false;
+
+    if (item->GetOwnerGUID() != player->GetGUID())
+        return false;
+
+    const ItemTemplate* proto = item->GetTemplate();
+    if (proto->Quality == ITEM_QUALITY_HEIRLOOM)
+        return false;
+
+    if (!proto->Delay)
+        return false;
+
+    if (!player->GetWeaponDamageRange(WeaponAttackType(Player::GetAttackBySlot(item->GetSlot())), MAXDAMAGE))
+        return false;
+
+    if (item->IsBroken())
+        return false;
+
+    return true;
+}
+
 void ItemUpgrade::AddItemToPagedData(const Item* item, const Player* player, PagedData& pagedData)
 {
     const ItemTemplate* proto = item->GetTemplate();
@@ -752,12 +851,21 @@ bool ItemUpgrade::_AddPagedData(Player* player, const PagedData& pagedData, uint
     Item* item = nullptr;
     if (pagedData.type == PAGED_DATA_TYPE_STATS || pagedData.type == PAGED_DATA_TYPE_REQS || pagedData.type == PAGED_DATA_TYPE_UPGRADED_ITEMS_STATS
         || pagedData.type == PAGED_DATA_TYPE_STATS_BULK || pagedData.type == PAGED_DATA_TYPE_STAT_UPGRADE_BULK || pagedData.type == PAGED_DATA_TYPE_REQS_BULK
-        || pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_PERCS || pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_PERC_INFO || pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK_INFO)
+        || pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_PERCS || pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_PERC_INFO || pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK_INFO
+        || pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_PERCS || pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_PERC_INFO || pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_ITEMS_CHECK_INFO)
     {
         item = player->GetItemByGuid(pagedData.item.guid);
-        bool validItem = pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_PERCS
+        bool validItem = false;
+        if (pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_PERCS
             || pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_PERC_INFO
-            || pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK_INFO ? IsValidWeaponForUpgrade(item, player) : IsValidItemForUpgrade(item, player);
+            || pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK_INFO)
+            validItem = IsValidWeaponForUpgrade(item, player);
+        else if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_PERCS
+            || pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_PERC_INFO
+            || pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_ITEMS_CHECK_INFO)
+            validItem = IsValidWeaponForSpeedUpgrade(item, player);
+        else
+            validItem = IsValidItemForUpgrade(item, player);
         if (!validItem)
             return false;
 
@@ -820,11 +928,19 @@ bool ItemUpgrade::_AddPagedData(Player* player, const PagedData& pagedData, uint
 
             AddGossipItemFor(player, GOSSIP_ICON_CHAT, oss.str(), GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
 
-            const UpgradeStat* weaponUpgrade = FindUpgradeForWeapon(player, item);
+            const UpgradeStat* weaponUpgrade = FindUpgradeForWeapon(characterWeaponUpgradeData, player, item);
             if (weaponUpgrade != nullptr)
             {
                 std::ostringstream wuoss;
                 wuoss << "|cff056e3aWEAPON DAMAGE UPGRADED BY " << FormatFloat(weaponUpgrade->statModPct) << "%|r";
+                AddGossipItemFor(player, GOSSIP_ICON_CHAT, wuoss.str(), GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
+            }
+
+            const UpgradeStat* weaponSpeedUpgrade = FindUpgradeForWeapon(characterWeaponSpeedUpgradeData, player, item);
+            if (weaponSpeedUpgrade)
+            {
+                std::ostringstream wuoss;
+                wuoss << "|cff056e3aWEAPON SPEED UPGRADED BY " << FormatFloat(weaponSpeedUpgrade->statModPct) << "%|r";
                 AddGossipItemFor(player, GOSSIP_ICON_CHAT, wuoss.str(), GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
             }
 
@@ -897,6 +1013,9 @@ bool ItemUpgrade::_AddPagedData(Player* player, const PagedData& pagedData, uint
     if (pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_PERC_INFO)
         AddGossipItemFor(player, GOSSIP_ICON_TRAINER, (MeetsWeaponUpgradeRequirement(player) ? "|cff056e3a[UPGRADE]|r" : "|cffb50505[UPGRADE]|r"), GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 1, "Are you sure you want to upgrade this weapon?", 0, false);
 
+    if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_PERC_INFO)
+        AddGossipItemFor(player, GOSSIP_ICON_TRAINER, (MeetsWeaponSpeedUpgradeRequirement(player) ? "|cff056e3a[UPGRADE]|r" : "|cffb50505[UPGRADE]|r"), GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 1, "Are you sure you want to upgrade the speed of this weapon?", 0, false);
+
     if (!upgrades.empty())
     {
         AddGossipItemFor(player, GOSSIP_ICON_CHAT, "[ALL REQUIREMENTS]", GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 1);
@@ -906,6 +1025,9 @@ bool ItemUpgrade::_AddPagedData(Player* player, const PagedData& pagedData, uint
 
     if (pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK_INFO)
         AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "|cffb50505REMOVE UPGRADE|r", GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 1, "Are you sure you want to remove this weapon upgrade? This cannot be undone!", 0, false);
+
+    if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_ITEMS_CHECK_INFO)
+        AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "|cffb50505REMOVE SPEED UPGRADE|r", GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 1, "Are you sure you want to remove this weapon speed upgrade? This cannot be undone!", 0, false);
 
     if (page + 1 < pagedData.totalPages)
         AddGossipItemFor(player, GOSSIP_ICON_CHAT, "[Next] ->", GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page + 1);
@@ -933,6 +1055,16 @@ bool ItemUpgrade::_AddPagedData(Player* player, const PagedData& pagedData, uint
         pageZeroSender += 18;
     else if (pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK_INFO)
         pageZeroSender += 19;
+    else if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_ITEMS)
+        pageZeroSender += 20;
+    else if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_PERCS)
+        pageZeroSender += 21;
+    else if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_PERC_INFO)
+        pageZeroSender += 22;
+    else if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_ITEMS_CHECK)
+        pageZeroSender += 23;
+    else if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_ITEMS_CHECK_INFO)
+        pageZeroSender += 24;
 
     AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<- [Back]", page == 0 ? pageZeroSender : GOSSIP_SENDER_MAIN + 2, page == 0 ? GOSSIP_ACTION_INFO_DEF : GOSSIP_ACTION_INFO_DEF + page - 1);
 
@@ -976,6 +1108,8 @@ void ItemUpgrade::NoPagedData(Player* player, const PagedData& pagedData) const
     }
     else if (pagedData.type == PAGED_DATA_TYPE_ITEMS_FOR_PURGE)
         AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505NOTHING TO PURGE|r", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
+    else if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_ITEMS)
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505NOTHING ON THIS PAGE, ONLY EQUIPPED ITEMS WILL BE SHOWN|r", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
     AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<- [First Page]", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
 }
 
@@ -1190,7 +1324,7 @@ bool ItemUpgrade::TakePagedDataAction(Player* player, Creature* creature, uint32
                 };
 
                 const FloatIdentifier* floatIdentifier = (FloatIdentifier*)identifier;
-                const UpgradeStat* weaponUpgrade = FindUpgradeForWeapon(player, item);
+                const UpgradeStat* weaponUpgrade = FindUpgradeForWeapon(characterWeaponUpgradeData, player, item);
                 if (weaponUpgrade != nullptr)
                 {
                     if (weaponUpgrade->statModPct >= floatIdentifier->modPct)
@@ -1200,7 +1334,7 @@ bool ItemUpgrade::TakePagedDataAction(Player* player, Creature* creature, uint32
                     }
                     else
                     {
-                        const UpgradeStat* nextWeaponUpgrade = FindNextWeaponUpgradeStat(weaponUpgrade->statModPct);
+                        const UpgradeStat* nextWeaponUpgrade = FindNextWeaponUpgradeStat(weaponUpgradeStats, weaponUpgrade->statModPct);
                         if (nextWeaponUpgrade != nullptr)
                         {
                             if (floatIdentifier->modPct > nextWeaponUpgrade->statModPct)
@@ -1296,6 +1430,133 @@ bool ItemUpgrade::TakePagedDataAction(Player* player, Creature* creature, uint32
             }
         }
     }
+    else if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_ITEMS)
+    {
+        Item* item = FindItemIdentifierFromPage(pagedData, action, player);
+        if (item == nullptr)
+            SendMessage(player, "Weapon is no longer available for speed upgrade.");
+        else
+        {
+            BuildWeaponSpeedPercentUpgradesCatalogue(player, item);
+            return AddPagedData(player, creature, 0);
+        }
+    }
+    else if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_PERCS)
+    {
+        const Identifier* identifier = pagedData.FindIdentifierById(action);
+        if (identifier != nullptr && identifier->GetType() == FLOAT_IDENTIFIER)
+        {
+            Item* item = player->GetItemByGuid(pagedData.item.guid);
+            if (!IsValidWeaponForSpeedUpgrade(item, player))
+                SendMessage(player, "Weapon is no longer available.");
+            else
+            {
+                auto rebuildPage = [&]()
+                {
+                    BuildWeaponSpeedPercentUpgradesCatalogue(player, item);
+                    return AddPagedData(player, creature, pagedData.currentPage);
+                };
+
+                const FloatIdentifier* floatIdentifier = (FloatIdentifier*)identifier;
+                const UpgradeStat* weaponUpgrade = FindUpgradeForWeapon(characterWeaponSpeedUpgradeData, player, item);
+                if (weaponUpgrade != nullptr)
+                {
+                    if (weaponUpgrade->statModPct >= floatIdentifier->modPct)
+                    {
+                        SendMessage(player, "You already bought this weapon speed upgrade!");
+                        return rebuildPage();
+                    }
+                    else
+                    {
+                        const UpgradeStat* nextWeaponUpgrade = FindNextWeaponUpgradeStat(weaponSpeedUpgradeStats, weaponUpgrade->statModPct);
+                        if (nextWeaponUpgrade != nullptr)
+                        {
+                            if (floatIdentifier->modPct > nextWeaponUpgrade->statModPct)
+                            {
+                                SendMessage(player, "You must buy the previous upgrade first!");
+                                return rebuildPage();
+                            }
+                            else
+                            {
+                                BuildWeaponSpeedUpgradesPercentInfoCatalogue(player, item, floatIdentifier->modPct);
+                                return AddPagedData(player, creature, 0);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    if (floatIdentifier->modPct > weaponSpeedUpgradeStats[0].statModPct)
+                    {
+                        SendMessage(player, "You must buy the previous upgrade first!");
+                        return rebuildPage();
+                    }
+                    else
+                    {
+                        BuildWeaponSpeedUpgradesPercentInfoCatalogue(player, item, floatIdentifier->modPct);
+                        return AddPagedData(player, creature, 0);
+                    }
+                }
+            }
+        }
+    }
+    else if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_PERC_INFO)
+    {
+        Item* item = player->GetItemByGuid(pagedData.item.guid);
+        if (!IsValidWeaponForSpeedUpgrade(item, player))
+            SendMessage(player, "Weapon is no longer available.");
+        else
+        {
+            if (action == 0)
+            {
+                BuildWeaponSpeedUpgradesPercentInfoCatalogue(player, item, pagedData.upgradeStat->statModPct);
+                return AddPagedData(player, creature, 0);
+            }
+            else if (action == 1)
+            {
+                if (!PurchaseWeaponSpeedUpgrade(player))
+                    SendMessage(player, "Upgrade could not be processed. This should not happen, unless the weapon is no longer available.");
+                else
+                {
+                    CloseGossipMenuFor(player);
+                    return true;
+                }
+            }
+        }
+    }
+    else if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_ITEMS_CHECK)
+    {
+        Item* item = FindItemIdentifierFromPage(pagedData, action, player);
+        if (item == nullptr)
+            SendMessage(player, "Weapon is no longer available for upgrade.");
+        else
+        {
+            BuildWeaponSpeedUpgradeInfoCatalogue(player, item);
+            return AddPagedData(player, creature, 0);
+        }
+    }
+    else if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_ITEMS_CHECK_INFO)
+    {
+        Item* item = player->GetItemByGuid(pagedData.item.guid);
+        if (!IsValidWeaponForSpeedUpgrade(item, player))
+            SendMessage(player, "Weapon is no longer available.");
+        else
+        {
+            if (action == 0)
+            {
+                BuildWeaponSpeedUpgradeInfoCatalogue(player, item);
+                return AddPagedData(player, creature, pagedData.currentPage);
+            }
+            else if (action == 1)
+            {
+                if (PurgeWeaponSpeedUpgrade(player, item))
+                    VisualFeedback(player);
+
+                CloseGossipMenuFor(player);
+                return true;
+            }
+        }
+    }
 
     CloseGossipMenuFor(player);
     return false;
@@ -1308,7 +1569,14 @@ Item* ItemUpgrade::FindItemIdentifierFromPage(const PagedData& pagedData, uint32
     {
         const ItemIdentifier* itemIdentifier = (ItemIdentifier*)identifier;
         Item* item = player->GetItemByGuid(itemIdentifier->guid);
-        bool valid = pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS || pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK ? IsValidWeaponForUpgrade(item, player) : IsValidItemForUpgrade(item, player);
+        bool valid = false;
+        if (pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS || pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK)
+            valid = IsValidWeaponForUpgrade(item, player);
+        else if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_ITEMS || pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_ITEMS_CHECK)
+            valid = IsValidWeaponForSpeedUpgrade(item, player);
+        else
+            valid = IsValidItemForUpgrade(item, player);
+
         if (valid)
             return item;
     }
@@ -1343,14 +1611,14 @@ bool ItemUpgrade::HandlePurchaseRank(Player* player, Item* item, const UpgradeSt
     return true;
 }
 
-bool ItemUpgrade::HandlePurchaseWeaponUpgrade(Player* player, Item* item, const UpgradeStat* upgrade)
+bool ItemUpgrade::HandlePurchaseWeaponUpgrade(Player* player, Item* item, const UpgradeStat* upgrade, bool speedUpgrade)
 {
-    std::vector<CharacterUpgrade>& upgrades = characterWeaponUpgradeData[player->GetGUID().GetCounter()];
+    std::vector<CharacterUpgrade>& upgrades = !speedUpgrade ? characterWeaponUpgradeData[player->GetGUID().GetCounter()] : characterWeaponSpeedUpgradeData[player->GetGUID().GetCounter()];
     std::vector<CharacterUpgrade>::const_iterator citer = std::remove_if(upgrades.begin(), upgrades.end(),
         [&](const CharacterUpgrade& upgrade) { return upgrade.itemGuid == item->GetGUID(); });
     upgrades.erase(citer, upgrades.end());
 
-    CharacterDatabase.Execute("REPLACE INTO character_weapon_upgrade (guid, item_guid, upgrade_perc) VALUES ({}, {}, {})",
+    CharacterDatabase.Execute("REPLACE INTO {} (guid, item_guid, upgrade_perc) VALUES ({}, {}, {})", !speedUpgrade ? "character_weapon_upgrade" : "character_weapon_speed_upgrade",
         player->GetGUID().GetCounter(), item->GetGUID().GetCounter(), upgrade->statModPct);
 
     CharacterUpgrade newUpgrade;
@@ -1394,6 +1662,8 @@ bool ItemUpgrade::PurchaseUpgrade(Player* player)
 
     SendItemPacket(player, item);
 
+    RefreshWeaponSpeed(player);
+
     return true;
 }
 
@@ -1416,7 +1686,7 @@ bool ItemUpgrade::PurchaseWeaponUpgrade(Player* player)
     if (item->IsEquipped())
         player->_ApplyItemMods(item, item->GetSlot(), false);
 
-    HandlePurchaseWeaponUpgrade(player, item, pagedData.upgradeStat);
+    HandlePurchaseWeaponUpgrade(player, item, pagedData.upgradeStat, false);
 
     if (item->IsEquipped())
         player->_ApplyItemMods(item, item->GetSlot(), true);
@@ -1427,6 +1697,38 @@ bool ItemUpgrade::PurchaseWeaponUpgrade(Player* player)
     SendMessage(player, "Weapon successfully upgraded!");
 
     SendItemPacket(player, item);
+
+    RefreshWeaponSpeed(player);
+
+    return true;
+}
+
+bool ItemUpgrade::PurchaseWeaponSpeedUpgrade(Player* player)
+{
+    PagedData& pagedData = GetPagedData(player);
+    if (!pagedData.upgradeStat)
+        return false;
+
+    Item* item = player->GetItemByGuid(pagedData.item.guid);
+    if (!IsValidWeaponForSpeedUpgrade(item, player))
+        return false;
+
+    if (!MeetsWeaponSpeedUpgradeRequirement(player))
+    {
+        SendMessage(player, "You do not meet the requirements to buy this upgrade.");
+        return true;
+    }
+
+    HandlePurchaseWeaponUpgrade(player, item, pagedData.upgradeStat, true);
+
+    TakeWeaponSpeedUpgradeRequirements(player);
+
+    VisualFeedback(player);
+    SendMessage(player, "Weapon speed successfully upgraded!");
+
+    SendItemPacket(player, item);
+
+    RefreshWeaponSpeed(player);
 
     return true;
 }
@@ -1464,6 +1766,8 @@ bool ItemUpgrade::PurchaseUpgradeBulk(Player* player)
     SendMessage(player, "Item successfully upgraded!");
 
     SendItemPacket(player, item);
+
+    RefreshWeaponSpeed(player);
 
     return true;
 }
@@ -1514,7 +1818,7 @@ std::pair<float, float> ItemUpgrade::HandleWeaponModifier(const Player* player, 
     if (minDamage == 0.0f || maxDamage == 0.0f)
         return std::make_pair(minDamage, maxDamage);
 
-    const UpgradeStat* weaponUpgrade = FindUpgradeForWeapon(player, item);
+    const UpgradeStat* weaponUpgrade = FindUpgradeForWeapon(characterWeaponUpgradeData, player, item);
     if (weaponUpgrade == nullptr)
         return std::make_pair(minDamage, maxDamage);
 
@@ -1523,18 +1827,45 @@ std::pair<float, float> ItemUpgrade::HandleWeaponModifier(const Player* player, 
     return std::make_pair(upgradedMinDamage, upgradedMaxDamage);
 }
 
+uint32 ItemUpgrade::HandleWeaponSpeedModifier(const Player* player, const Item* item) const
+{
+    uint32 originalDelay = GetItemProtoDelay(item);
+    if (!originalDelay)
+        return originalDelay;
+
+    if (!GetBoolConfig(CONFIG_ITEM_UPGRADE_ENABLED))
+        return originalDelay;
+
+    if (!GetBoolConfig(CONFIG_ITEM_UPGRADE_WEAPON_SPEED))
+        return originalDelay;
+
+    if (!item)
+        return originalDelay;
+
+    const UpgradeStat* weaponUpgrade = FindUpgradeForWeapon(characterWeaponSpeedUpgradeData, player, item);
+    if (weaponUpgrade == nullptr)
+        return originalDelay;
+
+    return CalculatePctDecrease(originalDelay, weaponUpgrade->statModPct);
+}
+
 void ItemUpgrade::HandleItemRemove(Player* player, Item* item)
 {
     bool hasItemUpgrades = !FindUpgradesForItem(player, item).empty();
-    bool hasWeaponUpgrade = FindUpgradeForWeapon(player, item) != nullptr;
-    if (hasItemUpgrades || hasWeaponUpgrade)
+    bool hasWeaponUpgrade = FindUpgradeForWeapon(characterWeaponUpgradeData, player, item) != nullptr;
+    bool hasWeaponSpeedUpgrade = FindUpgradeForWeaponSpeed(player, item) != nullptr;
+    if (hasItemUpgrades || hasWeaponUpgrade || hasWeaponSpeedUpgrade)
     {
         player->_ApplyItemMods(item, item->GetSlot(), false);
         if (hasItemUpgrades)
             RemoveItemUpgrade(player, item);
         if (hasWeaponUpgrade)
             RemoveWeaponUpgrade(player, item);
+        if (hasWeaponSpeedUpgrade)
+            RemoveWeaponSpeedUpgrade(player, item);
         player->_ApplyItemMods(item, item->GetSlot(), true);
+
+        RefreshWeaponSpeed(player);
     }
 }
 
@@ -1558,10 +1889,17 @@ void ItemUpgrade::RemoveWeaponUpgrade(Player* player, Item* item)
     CharacterDatabase.Execute("DELETE FROM character_weapon_upgrade WHERE guid = {} AND item_guid = {}", player->GetGUID().GetCounter(), item->GetGUID().GetCounter());
 }
 
+void ItemUpgrade::RemoveWeaponSpeedUpgrade(Player* player, Item* item)
+{
+    RemoveItemUpgradeFromContainer(characterWeaponSpeedUpgradeData, player, item);
+    CharacterDatabase.Execute("DELETE FROM character_weapon_speed_upgrade WHERE guid = {} AND item_guid = {}", player->GetGUID().GetCounter(), item->GetGUID().GetCounter());
+}
+
 void ItemUpgrade::HandleCharacterRemove(uint32 guid)
 {
     characterUpgradeData[guid].clear();
     characterWeaponUpgradeData[guid].clear();
+    characterWeaponSpeedUpgradeData[guid].clear();
 }
 
 void ItemUpgrade::BuildRequirementsPage(const Player* player, PagedData& pagedData, const StatRequirementContainer* reqs) const
@@ -1690,7 +2028,9 @@ void ItemUpgrade::AddUpgradedItemToPagedData(const Item* item, const Player* pla
 {
     bool shouldAdd = false;
     if (pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK)
-        shouldAdd = FindUpgradeForWeapon(player, item) != nullptr;
+        shouldAdd = FindUpgradeForWeapon(characterWeaponUpgradeData, player, item) != nullptr;
+    else if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_ITEMS_CHECK)
+        shouldAdd = FindUpgradeForWeapon(characterWeaponSpeedUpgradeData, player, item) != nullptr;
     else
         shouldAdd = !FindUpgradesForItem(player, item).empty();
 
@@ -1704,7 +2044,7 @@ void ItemUpgrade::AddUpgradedItemToPagedData(const Item* item, const Player* pla
         itemIdentifier->name = ItemNameWithLocale(player, proto, item->GetItemRandomPropertyId());
         itemIdentifier->uiName = ItemLinkForUI(item, player) + " [" + from + "]";
 
-        if (pagedData.type != PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK)
+        if (pagedData.type != PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK && pagedData.type != PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_ITEMS_CHECK)
         {
             if (!IsAllowedItem(item) || IsBlacklistedItem(item))
                 itemIdentifier->uiName += " [|cffb50505INACTIVE|r]";
@@ -1757,23 +2097,26 @@ void ItemUpgrade::BuildItemUpgradeStatsCatalogue(const Player* player, const Ite
     pagedData.SortAndCalculateTotals();
 }
 
-void ItemUpgrade::BuildWeaponPercentUpgradesCatalogue(const Player* player, const Item* item)
+void ItemUpgrade::_BuildWeaponPercentUpgradesCatalogue(const Player* player, const Item* item, PagedDataType type)
 {
     PagedData& pagedData = GetPagedData(player);
     pagedData.Reset();
     pagedData.upgradeStat = nullptr;
     pagedData.item.guid = item->GetGUID();
-    pagedData.type = PAGED_DATA_TYPE_WEAPON_UPGRADE_PERCS;
+    pagedData.type = type;
 
-    const UpgradeStat* weaponUpgrade = FindUpgradeForWeapon(player, item);
+    const CharacterUpgradeContainer& weaponUpgradeData = type == PAGED_DATA_TYPE_WEAPON_UPGRADE_PERCS ? characterWeaponUpgradeData : characterWeaponSpeedUpgradeData;
+    const UpgradeStatContainer& upgradeStats = type == PAGED_DATA_TYPE_WEAPON_UPGRADE_PERCS ? weaponUpgradeStats : weaponSpeedUpgradeStats;
+
+    const UpgradeStat* weaponUpgrade = FindUpgradeForWeapon(weaponUpgradeData, player, item);
     bool nextRankSet = false;
 
-    for (size_t i = 0; i < weaponUpgradeStats.size(); i++)
+    for (size_t i = 0; i < upgradeStats.size(); i++)
     {
         FloatIdentifier* identifier = new FloatIdentifier();
         identifier->id = pagedData.data.size();
         identifier->name = "";
-        identifier->modPct = weaponUpgradeStats[i].statModPct;
+        identifier->modPct = upgradeStats[i].statModPct;
 
         bool toPurchase = false;
         bool purchased = false;
@@ -1803,7 +2146,7 @@ void ItemUpgrade::BuildWeaponPercentUpgradesCatalogue(const Player* player, cons
             oss << "|cff5c5b57";
         else
             oss << "|cffb50505";
-        oss << "Increase by " << identifier->modPct << "%|r";
+        oss << "Upgrade by " << identifier->modPct << "%|r";
         if (toPurchase)
             oss << " [PURCHASE]";
         else if (purchased)
@@ -1816,11 +2159,21 @@ void ItemUpgrade::BuildWeaponPercentUpgradesCatalogue(const Player* player, cons
     pagedData.SortAndCalculateTotals();
 }
 
+void ItemUpgrade::BuildWeaponPercentUpgradesCatalogue(const Player* player, const Item* item)
+{
+    _BuildWeaponPercentUpgradesCatalogue(player, item, PAGED_DATA_TYPE_WEAPON_UPGRADE_PERCS);
+}
+
+void ItemUpgrade::BuildWeaponSpeedPercentUpgradesCatalogue(const Player* player, const Item* item)
+{
+    _BuildWeaponPercentUpgradesCatalogue(player, item, PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_PERCS);
+}
+
 void ItemUpgrade::BuildWeaponUpgradesPercentInfoCatalogue(const Player* player, const Item* item, float pct)
 {
     PagedData& pagedData = GetPagedData(player);
     pagedData.Reset();
-    pagedData.upgradeStat = FindWeaponUpgradeStat(pct);
+    pagedData.upgradeStat = FindWeaponUpgradeStat(weaponUpgradeStats, pct);
     pagedData.item.guid = item->GetGUID();
     pagedData.type = PAGED_DATA_TYPE_WEAPON_UPGRADE_PERC_INFO;
 
@@ -1859,6 +2212,51 @@ void ItemUpgrade::BuildWeaponUpgradesPercentInfoCatalogue(const Player* player, 
     pagedData.SortAndCalculateTotals();
 }
 
+void ItemUpgrade::BuildWeaponSpeedUpgradesPercentInfoCatalogue(const Player* player, const Item* item, float pct)
+{
+    PagedData& pagedData = GetPagedData(player);
+    pagedData.Reset();
+    pagedData.upgradeStat = FindWeaponUpgradeStat(weaponSpeedUpgradeStats, pct);
+    pagedData.item.guid = item->GetGUID();
+    pagedData.type = PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_PERC_INFO;
+
+    Identifier* pctIdnt = new Identifier();
+    pctIdnt->id = 0;
+    pctIdnt->uiName = "Upgrading speed by " + FormatFloat(pct) + "% (will decrease weapon swing delay)";
+    pagedData.data.push_back(pctIdnt);
+
+    Identifier* identifier = new Identifier();
+    identifier->id = 0;
+    identifier->uiName = "Requirements:";
+    pagedData.data.push_back(identifier);
+
+    BuildRequirementsPage(player, pagedData, &weaponSpeedUpgradeReqs);
+
+    uint32 originalDelay = GetItemProtoDelay(item);
+
+    Identifier* origDelayIdnt = new Identifier();
+    origDelayIdnt->id = 0;
+    origDelayIdnt->uiName = "ORIGINAL SPEED: " + FormatDelay(originalDelay);
+    pagedData.data.push_back(origDelayIdnt);
+
+    uint32 currentDelay = HandleWeaponSpeedModifier(player, item);
+    Identifier* currentDelayIdnt = new Identifier();
+    currentDelayIdnt->id = 0;
+    currentDelayIdnt->uiName = "CURRENT SPEED: |cffb50505" + FormatDelay(currentDelay) + "|r";
+    pagedData.data.push_back(currentDelayIdnt);
+
+    uint32 nextDelay = CalculatePctDecrease(originalDelay, pct);
+    Identifier* nextDelayIdnt = new Identifier();
+    nextDelayIdnt->id = 0;
+    nextDelayIdnt->uiName = "WILL DECREASE TO: |cff056e3a" + FormatDelay(nextDelay) + "|r";
+    pagedData.data.push_back(nextDelayIdnt);
+
+    for (uint32 i = 0; i < pagedData.data.size(); i++)
+        pagedData.data[i]->name = Acore::ToString(i);
+
+    pagedData.SortAndCalculateTotals();
+}
+
 void ItemUpgrade::BuildWeaponUpgradeInfoCatalogue(const Player* player, const Item* item)
 {
     PagedData& pagedData = GetPagedData(player);
@@ -1867,7 +2265,7 @@ void ItemUpgrade::BuildWeaponUpgradeInfoCatalogue(const Player* player, const It
     pagedData.item.guid = item->GetGUID();
     pagedData.type = PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK_INFO;
 
-    const UpgradeStat* weaponUpgrade = FindUpgradeForWeapon(player, item);
+    const UpgradeStat* weaponUpgrade = FindUpgradeForWeapon(characterWeaponUpgradeData, player, item);
     if (weaponUpgrade == nullptr)
         return;
 
@@ -1901,6 +2299,41 @@ void ItemUpgrade::BuildWeaponUpgradeInfoCatalogue(const Player* player, const It
         equipIdnt->optionIcon = GOSSIP_ICON_BATTLE;
         pagedData.data.push_back(equipIdnt);
     }
+
+    pagedData.SortAndCalculateTotals();
+}
+
+void ItemUpgrade::BuildWeaponSpeedUpgradeInfoCatalogue(const Player* player, const Item* item)
+{
+    PagedData& pagedData = GetPagedData(player);
+    pagedData.Reset();
+    pagedData.upgradeStat = nullptr;
+    pagedData.item.guid = item->GetGUID();
+    pagedData.type = PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_ITEMS_CHECK_INFO;
+
+    const UpgradeStat* weaponUpgrade = FindUpgradeForWeapon(characterWeaponSpeedUpgradeData, player, item);
+    if (weaponUpgrade == nullptr)
+        return;
+
+    Identifier* speedIdnt = new Identifier();
+    speedIdnt->id = 0;
+    speedIdnt->name = "0";
+    speedIdnt->uiName = "Speed upgraded by " + FormatFloat(weaponUpgrade->statModPct) + "%";
+    pagedData.data.push_back(speedIdnt);
+
+    uint32 originalDelay = GetItemProtoDelay(item);
+    Identifier* origDelayIdnt = new Identifier();
+    origDelayIdnt->id = 0;
+    origDelayIdnt->name = "1";
+    origDelayIdnt->uiName = "ORIGINAL SPEED: " + FormatDelay(originalDelay);
+    pagedData.data.push_back(origDelayIdnt);
+
+    uint32 newDelay = HandleWeaponSpeedModifier(player, item);
+    Identifier* newDelayIdnt = new Identifier();
+    newDelayIdnt->id = 0;
+    newDelayIdnt->name = "2";
+    newDelayIdnt->uiName = "CURRENT SPEED: " + FormatDelay(newDelay);
+    pagedData.data.push_back(newDelayIdnt);
 
     pagedData.SortAndCalculateTotals();
 }
@@ -1974,6 +2407,11 @@ void ItemUpgrade::TakeRequirements(Player* player, const StatRequirementContaine
 void ItemUpgrade::TakeWeaponUpgradeRequirements(Player* player)
 {
     TakeRequirements(player, &weaponUpgradeReqs);
+}
+
+void ItemUpgrade::TakeWeaponSpeedUpgradeRequirements(Player* player)
+{
+    TakeRequirements(player, &weaponSpeedUpgradeReqs);
 }
 
 void ItemUpgrade::BuildStatsUpgradeCatalogue(const Player* player, const Item* item)
@@ -2284,6 +2722,15 @@ std::unordered_map<uint32, const ItemUpgrade::UpgradeStat*> ItemUpgrade::FindAll
     return std::max(newAmount, value + upgradeStat->statRank);
 }
 
+/*static*/ uint32 ItemUpgrade::CalculatePctDecrease(uint32 value, float pct)
+{
+    if (pct >= 100.0f)
+        return 0;
+
+    float newAmount = value - (pct / 100.0f * value);
+    return static_cast<uint32>(std::trunc(newAmount));
+}
+
 /*static*/ bool ItemUpgrade::CompareIdentifier(const Identifier* a, const Identifier* b)
 {
     if (a->GetType() == FLOAT_IDENTIFIER && b->GetType() == FLOAT_IDENTIFIER)
@@ -2446,35 +2893,35 @@ const ItemUpgrade::UpgradeStat* ItemUpgrade::FindUpgradeStat(uint32 statType, ui
     return _FindUpgradeStat(upgradeStatList, [&](const UpgradeStat& stat) { return stat.statType == statType && stat.statRank == rank; });
 }
 
-const ItemUpgrade::UpgradeStat* ItemUpgrade::FindWeaponUpgradeStat(float pct) const
+const ItemUpgrade::UpgradeStat* ItemUpgrade::FindWeaponUpgradeStat(const UpgradeStatContainer& upgradeStatContainer, float pct) const
 {
-    return _FindUpgradeStat(weaponUpgradeStats, [&](const UpgradeStat& stat) { return stat.statModPct == pct; });
+    return _FindUpgradeStat(upgradeStatContainer, [&](const UpgradeStat& stat) { return stat.statModPct == pct; });
 }
 
-const ItemUpgrade::UpgradeStat* ItemUpgrade::FindNearestWeaponUpgradeStat(float pct) const
+const ItemUpgrade::UpgradeStat* ItemUpgrade::FindNearestWeaponUpgradeStat(const UpgradeStatContainer& upgradeStatContainer, float pct) const
 {
-    if (weaponUpgradeStats.empty())
+    if (upgradeStatContainer.empty())
         return nullptr;
 
-    for (int i = weaponUpgradeStats.size() - 1; i >= 0; i--)
-        if (weaponUpgradeStats[i].statModPct < pct)
-            return &weaponUpgradeStats[i];
+    for (int i = upgradeStatContainer.size() - 1; i >= 0; i--)
+        if (upgradeStatContainer[i].statModPct < pct)
+            return &upgradeStatContainer[i];
 
-    for (int i = 0; i < weaponUpgradeStats.size(); i++)
-        if (weaponUpgradeStats[i].statModPct > pct)
-            return &weaponUpgradeStats[i];
+    for (int i = 0; i < upgradeStatContainer.size(); i++)
+        if (upgradeStatContainer[i].statModPct > pct)
+            return &upgradeStatContainer[i];
 
     return nullptr;
 }
 
-const ItemUpgrade::UpgradeStat* ItemUpgrade::FindNextWeaponUpgradeStat(float pct) const
+const ItemUpgrade::UpgradeStat* ItemUpgrade::FindNextWeaponUpgradeStat(const UpgradeStatContainer& upgradeStatContainer, float pct) const
 {
-    if (weaponUpgradeStats.empty())
+    if (upgradeStatContainer.empty())
         return nullptr;
 
-    for (int i = 0; i < weaponUpgradeStats.size(); i++)
-        if (weaponUpgradeStats[i].statModPct > pct)
-            return &weaponUpgradeStats[i];
+    for (int i = 0; i < upgradeStatContainer.size(); i++)
+        if (upgradeStatContainer[i].statModPct > pct)
+            return &upgradeStatContainer[i];
 
     return nullptr;
 }
@@ -2511,13 +2958,23 @@ const ItemUpgrade::UpgradeStat* ItemUpgrade::FindUpgradeForItem(const Player* pl
     return nullptr;
 }
 
-const ItemUpgrade::UpgradeStat* ItemUpgrade::FindUpgradeForWeapon(const Player* player, const Item* item) const
+const ItemUpgrade::UpgradeStat* ItemUpgrade::FindUpgradeForWeapon(const CharacterUpgradeContainer& characterUpgradeContainer, const Player* player, const Item* item) const
 {
-    std::vector<const UpgradeStat*> weaponUpgrades = _FindUpgradesForItem(characterWeaponUpgradeData, player, item);
+    std::vector<const UpgradeStat*> weaponUpgrades = _FindUpgradesForItem(characterUpgradeContainer, player, item);
     if (weaponUpgrades.empty())
         return nullptr;
 
     return weaponUpgrades[0];
+}
+
+const ItemUpgrade::UpgradeStat* ItemUpgrade::FindUpgradeForWeaponDamage(const Player* player, const Item* item) const
+{
+    return FindUpgradeForWeapon(characterWeaponUpgradeData, player, item);
+}
+
+const ItemUpgrade::UpgradeStat* ItemUpgrade::FindUpgradeForWeaponSpeed(const Player* player, const Item* item) const
+{
+    return FindUpgradeForWeapon(characterWeaponSpeedUpgradeData, player, item);
 }
 
 /*static*/ std::string ItemUpgrade::CopperToMoneyStr(uint32 money, bool colored)
@@ -2570,6 +3027,13 @@ const ItemUpgrade::UpgradeStat* ItemUpgrade::FindUpgradeForWeapon(const Player* 
     return oss.str();
 }
 
+/*static*/ std::string ItemUpgrade::FormatDelay(uint32 val)
+{
+    std::ostringstream oss;
+    oss << FormatFloat(val / 1000.0f) << "s";
+    return oss.str();
+}
+
 void ItemUpgrade::SetReloading(bool value)
 {
     reloading = value;
@@ -2604,7 +3068,10 @@ void ItemUpgrade::HandleDataReload(Player* player, bool apply)
     }
 
     if (apply)
+    {
         UpdateVisualCache(player);
+        RefreshWeaponSpeed(player);
+    }
 }
 
 std::vector<Item*> ItemUpgrade::GetPlayerItems(const Player* player, bool inBankAlso) const
@@ -2742,7 +3209,10 @@ void ItemUpgrade::SendItemPacket(Player* player, Item* item) const
     queryData << pProto->ShadowRes;
     queryData << pProto->ArcaneRes;
 
-    queryData << pProto->Delay;
+    if (GetBoolConfig(CONFIG_ITEM_UPGRADE_SEND_PACKETS))
+        queryData << HandleWeaponSpeedModifier(player, item);
+    else
+        queryData << pProto->Delay;
     queryData << pProto->AmmoType;
     queryData << pProto->RangedModRange;
 
@@ -2826,7 +3296,7 @@ void ItemUpgrade::UpdateVisualCache(Player* player)
         ItemUpgradeInfo upgradeInfo;
         upgradeInfo.itemGuid = item->GetGUID();
         upgradeInfo.upgrades = FindUpgradesForItem(player, item);
-        upgradeInfo.weaponUpgrade = FindUpgradeForWeapon(player, item);
+        upgradeInfo.weaponUpgrade = FindUpgradeForWeapon(characterWeaponUpgradeData, player, item);
         entryUpgradeMap[item->GetEntry()].push_back(upgradeInfo);
     }
 
@@ -2964,6 +3434,7 @@ bool ItemUpgrade::PurgeUpgrade(Player* player, Item* item)
         if (item->IsEquipped())
             player->_ApplyItemMods(item, item->GetSlot(), true);
 
+        RefreshWeaponSpeed(player);
         SendItemPacket(player, item);
 
         return true;
@@ -2974,7 +3445,7 @@ bool ItemUpgrade::PurgeUpgrade(Player* player, Item* item)
 
 bool ItemUpgrade::PurgeWeaponUpgrade(Player* player, Item* item)
 {
-    const UpgradeStat* weaponUpgrade = FindUpgradeForWeapon(player, item);
+    const UpgradeStat* weaponUpgrade = FindUpgradeForWeapon(characterWeaponUpgradeData, player, item);
     if (weaponUpgrade != nullptr)
     {
         StatRequirementContainer allReqs;
@@ -3001,6 +3472,38 @@ bool ItemUpgrade::PurgeWeaponUpgrade(Player* player, Item* item)
             player->_ApplyItemMods(item, item->GetSlot(), true);
 
         SendItemPacket(player, item);
+
+        RefreshWeaponSpeed(player);
+
+        return true;
+    }
+    else
+        return false;
+}
+
+bool ItemUpgrade::PurgeWeaponSpeedUpgrade(Player* player, Item* item)
+{
+    const UpgradeStat* weaponUpgrade = FindUpgradeForWeaponSpeed(player, item);
+    if (weaponUpgrade != nullptr)
+    {
+        StatRequirementContainer allReqs;
+        for (const UpgradeStat& upgrade : weaponSpeedUpgradeStats)
+        {
+            if (weaponUpgrade->statModPct >= upgrade.statModPct)
+            {
+                for (const UpgradeStatReq& req : weaponSpeedUpgradeReqs)
+                    allReqs.push_back(req);
+            }
+        }
+        std::unordered_map<uint32, StatRequirementContainer> statRequirementMap;
+        statRequirementMap[0] = allReqs;
+        MergeStatRequirements(statRequirementMap, false);
+        if (!TryRefundRequirements(player, statRequirementMap.at(0)))
+            return false;
+
+        RemoveWeaponSpeedUpgrade(player, item);
+        SendItemPacket(player, item);
+        RefreshWeaponSpeed(player);
 
         return true;
     }
@@ -3293,9 +3796,9 @@ void ItemUpgrade::EquipItem(Player* player, Item* item)
     player->SwapItem(item->GetPos(), pos);
 }
 
-void ItemUpgrade::LoadWeaponUpgradePercents(const std::string& percents)
+void ItemUpgrade::LoadWeaponUpgradePercents(UpgradeStatContainer& upgradeStats, CharacterUpgradeContainer& characterUpgradeContainer, const std::string& percents)
 {
-    weaponUpgradeStats.clear();
+    upgradeStats.clear();
 
     std::vector<float> weaponUpgradePercents;
     std::vector<std::string_view> tokenized = Acore::Tokenize(percents, ',', false);
@@ -3311,17 +3814,17 @@ void ItemUpgrade::LoadWeaponUpgradePercents(const std::string& percents)
         weaponUpgradeStat.statRank = i + 1;
         weaponUpgradeStat.statModPct = weaponUpgradePercents[i];
         weaponUpgradeStat.statType = 0;
-        weaponUpgradeStats.push_back(weaponUpgradeStat);
+        upgradeStats.push_back(weaponUpgradeStat);
     }
 
-    for (auto itr = characterWeaponUpgradeData.begin(); itr != characterWeaponUpgradeData.end(); ++itr)
+    for (auto itr = characterUpgradeContainer.begin(); itr != characterUpgradeContainer.end(); ++itr)
     {
         std::vector<CharacterUpgrade>& weaponUpgrades = itr->second;
         for (CharacterUpgrade& upgrade : weaponUpgrades)
         {
-            upgrade.upgradeStat = FindWeaponUpgradeStat(upgrade.upgradeStatModPct);
+            upgrade.upgradeStat = FindWeaponUpgradeStat(upgradeStats, upgrade.upgradeStatModPct);
             if (upgrade.upgradeStat == nullptr)
-                upgrade.upgradeStat = FindNearestWeaponUpgradeStat(upgrade.upgradeStatModPct);
+                upgrade.upgradeStat = FindNearestWeaponUpgradeStat(upgradeStats, upgrade.upgradeStatModPct);
         }
     }
 }
@@ -3336,9 +3839,24 @@ void ItemUpgrade::LoadWeaponUpgradePercents(const std::string& percents)
     return GetItemProtoDamage(item->GetTemplate());
 }
 
+/*static*/ uint32 ItemUpgrade::GetItemProtoDelay(const ItemTemplate* proto)
+{
+    return proto->Delay;
+}
+
+/*static*/ uint32 ItemUpgrade::GetItemProtoDelay(const Item* item)
+{
+    return GetItemProtoDelay(item->GetTemplate());
+}
+
 bool ItemUpgrade::MeetsWeaponUpgradeRequirement(const Player* player) const
 {
     return MeetsRequirement(player, &weaponUpgradeReqs);
+}
+
+bool ItemUpgrade::MeetsWeaponSpeedUpgradeRequirement(const Player* player) const
+{
+    return MeetsRequirement(player, &weaponSpeedUpgradeReqs);
 }
 
 void ItemUpgrade::BuildWeaponUpgradeReqs()
@@ -3361,6 +3879,29 @@ void ItemUpgrade::BuildWeaponUpgradeReqs()
         moneyReq.reqType = REQ_TYPE_COPPER;
         moneyReq.reqVal1 = (float)GetIntConfig(CONFIG_ITEM_UPGRADE_WEAPON_DAMAGE_MONEY);
         weaponUpgradeReqs.push_back(moneyReq);
+    }
+}
+
+void ItemUpgrade::BuildWeaponSpeedUpgradeReqs()
+{
+    weaponSpeedUpgradeReqs.clear();
+
+    const ItemTemplate* tokenProto = sObjectMgr->GetItemTemplate(GetIntConfig(CONFIG_ITEM_UPGRADE_WEAPON_SPEED_TOKEN));
+    if (tokenProto != nullptr)
+    {
+        UpgradeStatReq tokenReq;
+        tokenReq.reqType = REQ_TYPE_ITEM;
+        tokenReq.reqVal1 = (float)GetIntConfig(CONFIG_ITEM_UPGRADE_WEAPON_SPEED_TOKEN);
+        tokenReq.reqVal2 = (float)GetIntConfig(CONFIG_ITEM_UPGRADE_WEAPON_SPEED_TOKEN_COUNT);
+        weaponSpeedUpgradeReqs.push_back(tokenReq);
+    }
+
+    if (GetIntConfig(CONFIG_ITEM_UPGRADE_WEAPON_SPEED_MONEY) > 0)
+    {
+        UpgradeStatReq moneyReq;
+        moneyReq.reqType = REQ_TYPE_COPPER;
+        moneyReq.reqVal1 = (float)GetIntConfig(CONFIG_ITEM_UPGRADE_WEAPON_SPEED_MONEY);
+        weaponSpeedUpgradeReqs.push_back(moneyReq);
     }
 }
 
@@ -3419,4 +3960,37 @@ bool ItemUpgrade::IsInactiveStatUpgrade(const Item* item, const UpgradeStat* upg
 bool ItemUpgrade::IsInactiveWeaponUpgrade() const
 {
     return !GetBoolConfig(CONFIG_ITEM_UPGRADE_ENABLED) || !GetBoolConfig(CONFIG_ITEM_UPGRADE_WEAPON_DAMAGE);
+}
+
+bool ItemUpgrade::IsInactiveWeaponSpeedUpgrade() const
+{
+    return !GetBoolConfig(CONFIG_ITEM_UPGRADE_ENABLED) || !GetBoolConfig(CONFIG_ITEM_UPGRADE_WEAPON_SPEED);
+}
+
+void ItemUpgrade::RefreshWeaponSpeed(Player* player)
+{
+    RefreshWeaponSpeed(player, EQUIPMENT_SLOT_MAINHAND);
+    RefreshWeaponSpeed(player, EQUIPMENT_SLOT_OFFHAND);
+    RefreshWeaponSpeed(player, EQUIPMENT_SLOT_RANGED);
+}
+
+void ItemUpgrade::RefreshWeaponSpeed(Player* player, EquipmentSlots slot)
+{
+    if (player->IsInFeralForm())
+        return;
+
+    Item* item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
+    if (!IsValidWeaponForSpeedUpgrade(item, player))
+        return;
+
+    uint32 delay = HandleWeaponSpeedModifier(player, item);
+    if (slot == EQUIPMENT_SLOT_RANGED)
+        player->SetAttackTime(RANGED_ATTACK, delay);
+    else if (slot == EQUIPMENT_SLOT_MAINHAND)
+        player->SetAttackTime(BASE_ATTACK, delay);
+    else if (slot == EQUIPMENT_SLOT_OFFHAND)
+        player->SetAttackTime(OFF_ATTACK, delay);
+
+    if (player->CanModifyStats())
+        player->UpdateDamagePhysical(WeaponAttackType(Player::GetAttackBySlot(slot)));
 }

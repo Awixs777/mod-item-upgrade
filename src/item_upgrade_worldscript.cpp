@@ -36,6 +36,7 @@ public:
     {
         sItemUpgrade->LoadFromDB();
         sItemUpgrade->BuildWeaponUpgradeReqs();
+        sItemUpgrade->BuildWeaponSpeedUpgradeReqs();
     }
 };
 

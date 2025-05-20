@@ -20,6 +20,7 @@ private:
 
         bool Execute(uint64 /*e_time*/, uint32 /*p_time*/)
         {
+            sItemUpgrade->RefreshWeaponSpeed(player);
             sItemUpgrade->UpdateVisualCache(player);
             return true;
         }
@@ -41,7 +42,8 @@ public:
             PLAYERHOOK_ON_QUEST_REWARD_ITEM,
             PLAYERHOOK_ON_CREATE_ITEM,
             PLAYERHOOK_ON_AFTER_STORE_OR_EQUIP_NEW_ITEM,
-            PLAYERHOOK_ON_APPLY_WEAPON_DAMAGE
+            PLAYERHOOK_ON_APPLY_WEAPON_DAMAGE,
+            PLAYERHOOK_ON_EQUIP
         }) {}
 
     void OnPlayerApplyItemModsBefore(Player* player, uint8 slot, bool /*apply*/, uint8 /*itemProtoStatNumber*/, uint32 statType, int32& val) override
@@ -63,6 +65,7 @@ public:
     {
         trans->Append("DELETE FROM character_item_upgrade WHERE guid = {}", guid);
         trans->Append("DELETE FROM character_weapon_upgrade WHERE guid = {}", guid);
+        trans->Append("DELETE FROM character_weapon_speed_upgrade WHERE guid = {}", guid);
         sItemUpgrade->HandleCharacterRemove(guid);
     }
 
@@ -115,6 +118,28 @@ public:
             std::pair<float, float> upgradedDmgInfo = sItemUpgrade->HandleWeaponModifier(player, slot, minDamage, maxDamage);
             minDamage = upgradedDmgInfo.first;
             maxDamage = upgradedDmgInfo.second;
+        }
+    }
+
+    void OnPlayerEquip(Player* player, Item* it, uint8 bag, uint8 slot, bool update) override
+    {
+        uint8 attType = Player::GetAttackBySlot(slot);
+        if (attType != MAX_ATTACK)
+        {
+            const ItemTemplate* proto = it->GetTemplate();
+            if (proto->Delay && !player->IsInFeralForm())
+            {
+                uint32 delay = sItemUpgrade->HandleWeaponSpeedModifier(player, it);
+                if (slot == EQUIPMENT_SLOT_RANGED)
+                    player->SetAttackTime(RANGED_ATTACK, delay);
+                else if (slot == EQUIPMENT_SLOT_MAINHAND)
+                    player->SetAttackTime(BASE_ATTACK, delay);
+                else if (slot == EQUIPMENT_SLOT_OFFHAND)
+                    player->SetAttackTime(OFF_ATTACK, delay);
+
+                if (player->CanModifyStats() && player->GetWeaponDamageRange(WeaponAttackType(attType), MAXDAMAGE))
+                    player->UpdateDamagePhysical(WeaponAttackType(attType));
+            }
         }
     }
 };

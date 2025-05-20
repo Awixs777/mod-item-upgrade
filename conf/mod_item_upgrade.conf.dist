@@ -238,3 +238,53 @@ ItemUpgrade.UpgradeWeaponDamageTokenCount = 1
 
 ItemUpgrade.UpgradeWeaponDamageMoney = 0
 
+#
+#    ItemUpgrade.UpgradeWeaponSpeed
+#        Description: Shows a menu where weapon speed can be upgraded
+#        Default:     1 - show the menu
+#
+
+ItemUpgrade.UpgradeWeaponSpeed = 1
+
+#
+#    ItemUpgrade.UpgradeWeaponSpeedPercents
+#        Description: A list of percentages (separated by comma) that the players can select when upgrading their weapons speed.
+#                     Numbers here will be sorted ascending and they will act like ranks, players will have to purchase
+#                     the previous rank (percentage) in order to buy the next one.
+#                     For example: 10,20,30 - lets say that a player wants to upgrade the speed of a weapon by 20%; the player
+#                                  can't directly upgrade by 20%, the player will need to buy the 10% speed increase first.
+#                     When a percentage is chosen for upgrade, weapon's speed will be decreased by this percent.
+#        Default:     10,20,30 - can choose to upgrade by 10%, 20% and 30% respectively
+#        Only takes effect when ItemUpgrade.UpgradeWeaponSpeed is 1
+#
+
+ItemUpgrade.UpgradeWeaponSpeedPercents = 10,20,30
+
+#
+#    ItemUpgrade.UpgradeWeaponSpeedToken
+#        Description: A token (item) that is to be used when players want to upgrade the speed of a weapon.
+#        Default:     0 - No token
+#                     Item Entry - the entry of token
+#        Only takes effect when ItemUpgrade.UpgradeWeaponSpeed is 1
+#
+
+ItemUpgrade.UpgradeWeaponSpeedToken = 0
+
+#
+#    ItemUpgrade.UpgradeWeaponSpeedTokenCount
+#        Description: The number of ItemUpgrade.UpgradeWeaponSpeedToken required to purchase a weapon speed rank.
+#        Default:     1 - 1x ItemUpgrade.UpgradeWeaponSpeedToken
+#        Only takes effect when ItemUpgrade.UpgradeWeaponSpeed is 1
+#        Only takes effect when ItemUpgrade.UpgradeWeaponSpeedToken is a valid item
+#
+
+ItemUpgrade.UpgradeWeaponSpeedTokenCount = 1
+
+#
+#    ItemUpgrade.UpgradeWeaponSpeedMoney
+#        Description: Money (copper) required for players to pay when buying a weapon speed upgrade.
+#        Default:     0 - No money
+#        Only takes effect when ItemUpgrade.UpgradeWeaponSpeed is 1
+#
+
+ItemUpgrade.UpgradeWeaponSpeedMoney = 0

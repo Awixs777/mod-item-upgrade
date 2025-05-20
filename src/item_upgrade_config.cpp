@@ -27,10 +27,12 @@ void ItemUpgradeConfig::Initialize()
     boolConfigs[CONFIG_ITEM_UPGRADE_RANDOM_UPGRADES_QUEST_REWARD] = sConfigMgr->GetOption<bool>("ItemUpgrade.RandomUpgradeOnQuestReward", true);
     boolConfigs[CONFIG_ITEM_UPGRADE_RANDOM_UPGRADES_CRAFTING] = sConfigMgr->GetOption<bool>("ItemUpgrade.RandomUpgradeWhenCrafting", true);
     boolConfigs[CONFIG_ITEM_UPGRADE_WEAPON_DAMAGE] = sConfigMgr->GetOption<bool>("ItemUpgrade.UpgradeWeaponDamage", true);
+    boolConfigs[CONFIG_ITEM_UPGRADE_WEAPON_SPEED] = sConfigMgr->GetOption<bool>("ItemUpgrade.UpgradeWeaponSpeed", true);
 
     stringConfigs[CONFIG_ITEM_UPGRADE_ALLOWED_STATS] = sConfigMgr->GetOption<std::string>("ItemUpgrade.AllowedStats", "0,3,4,5,6,7,32,36,45");
     stringConfigs[CONFIG_ITEM_UPGRADE_RANDOM_UPGRADES_LOGIN_MSG] = sConfigMgr->GetOption<std::string>("ItemUpgrade.RandomUpgradesBroadcastLoginMsg", "");
     stringConfigs[CONFIG_ITEM_UPGRADE_WEAPON_DAMAGE_PERCENTS] = sConfigMgr->GetOption<std::string>("ItemUpgrade.UpgradeWeaponDamagePercents", "5,10,15");
+    stringConfigs[CONFIG_ITEM_UPGRADE_WEAPON_SPEED_PERCENTS] = sConfigMgr->GetOption<std::string>("ItemUpgrade.UpgradeWeaponSpeedPercents", "10,20,30");
 
     floatConfigs[CONFIG_ITEM_UPGRADE_RANDOM_UPGRADES_CHANCE] = sConfigMgr->GetOption<float>("ItemUpgrade.RandomUpgradeChance", 2.0f);
     if (floatConfigs[CONFIG_ITEM_UPGRADE_RANDOM_UPGRADES_CHANCE] <= 0.0f)
@@ -62,6 +64,15 @@ void ItemUpgradeConfig::Initialize()
     intConfigs[CONFIG_ITEM_UPGRADE_WEAPON_DAMAGE_MONEY] = sConfigMgr->GetOption<int32>("ItemUpgrade.UpgradeWeaponDamageMoney", 0);
     if (intConfigs[CONFIG_ITEM_UPGRADE_WEAPON_DAMAGE_MONEY] < 0 || intConfigs[CONFIG_ITEM_UPGRADE_WEAPON_DAMAGE_MONEY] > MAX_MONEY_AMOUNT)
         intConfigs[CONFIG_ITEM_UPGRADE_WEAPON_DAMAGE_MONEY] = 0;
+    intConfigs[CONFIG_ITEM_UPGRADE_WEAPON_SPEED_TOKEN] = sConfigMgr->GetOption<int32>("ItemUpgrade.UpgradeWeaponSpeedToken", 0);
+    if (intConfigs[CONFIG_ITEM_UPGRADE_WEAPON_SPEED_TOKEN] < 0)
+        intConfigs[CONFIG_ITEM_UPGRADE_WEAPON_SPEED_TOKEN] = 0;
+    intConfigs[CONFIG_ITEM_UPGRADE_WEAPON_SPEED_TOKEN_COUNT] = sConfigMgr->GetOption<int32>("ItemUpgrade.UpgradeWeaponSpeedTokenCount", 1);
+    if (intConfigs[CONFIG_ITEM_UPGRADE_WEAPON_SPEED_TOKEN_COUNT] < 1)
+        intConfigs[CONFIG_ITEM_UPGRADE_WEAPON_SPEED_TOKEN_COUNT] = 1;
+    intConfigs[CONFIG_ITEM_UPGRADE_WEAPON_SPEED_MONEY] = sConfigMgr->GetOption<int32>("ItemUpgrade.UpgradeWeaponSpeedMoney", 0);
+    if (intConfigs[CONFIG_ITEM_UPGRADE_WEAPON_SPEED_MONEY] < 0 || intConfigs[CONFIG_ITEM_UPGRADE_WEAPON_SPEED_MONEY] > MAX_MONEY_AMOUNT)
+        intConfigs[CONFIG_ITEM_UPGRADE_WEAPON_SPEED_MONEY] = 0;
 }
 
 bool ItemUpgradeConfig::GetBoolConfig(ItemUpgradeBoolConfigs index) const

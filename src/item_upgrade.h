@@ -33,6 +33,11 @@ public:
         PAGED_DATA_TYPE_WEAPON_UPGRADE_PERC_INFO,
         PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK,
         PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK_INFO,
+        PAGED_DATA_TYPE_WEAPON_SPEED_ITEMS,
+        PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_PERCS,
+        PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_PERC_INFO,
+        PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_ITEMS_CHECK,
+        PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_ITEMS_CHECK_INFO,
         MAX_PAGED_DATA_TYPE
     };
 
@@ -211,6 +216,7 @@ public:
     void LoadFromDB(bool reload = false);
 
     void BuildUpgradableItemCatalogue(const Player* player, PagedDataType type);
+    void BuildUpgradableWeaponSpeedItemCatalogue(const Player* player);
     void BuildStatsUpgradeCatalogue(const Player* player, const Item* item);
     void BuildStatsUpgradeCatalogueBulk(const Player* player, const Item* item);
     void BuildStatsUpgradeByPctCatalogueBulk(const Player* player, const Item* item, float pct);
@@ -219,8 +225,11 @@ public:
     void BuildAlreadyUpgradedItemsCatalogue(const Player* player, PagedDataType type);
     void BuildItemUpgradeStatsCatalogue(const Player* player, const Item* item);
     void BuildWeaponPercentUpgradesCatalogue(const Player* player, const Item* item);
+    void BuildWeaponSpeedPercentUpgradesCatalogue(const Player* player, const Item* item);
     void BuildWeaponUpgradesPercentInfoCatalogue(const Player* player, const Item* item, float pct);
+    void BuildWeaponSpeedUpgradesPercentInfoCatalogue(const Player* player, const Item* item, float pct);
     void BuildWeaponUpgradeInfoCatalogue(const Player* player, const Item* item);
+    void BuildWeaponSpeedUpgradeInfoCatalogue(const Player* player, const Item* item);
 
     PagedData& GetPagedData(const Player* player);
     PagedDataMap& GetPagedDataMap();
@@ -229,11 +238,13 @@ public:
 
     bool IsValidItemForUpgrade(const Item* item, const Player* player) const;
     bool IsValidWeaponForUpgrade(const Item* item, const Player* player) const;
+    bool IsValidWeaponForSpeedUpgrade(const Item* item, const Player* player) const;
 
     int32 HandleStatModifier(const Player* player, uint8 slot, uint32 statType, int32 amount) const;
     int32 HandleStatModifier(const Player* player, Item* item, uint32 statType, int32 amount, EnchantmentSlot slot) const;
     std::pair<float, float> HandleWeaponModifier(const Player* player, uint8 slot, float minDamage, float maxDamage) const;
     std::pair<float, float> HandleWeaponModifier(const Player* player, const Item* item, float minDamage, float maxDamag) const;
+    uint32 HandleWeaponSpeedModifier(const Player* player, const Item* item) const;
     void HandleItemRemove(Player* player, Item* item);
     void HandleCharacterRemove(uint32 guid);
 
@@ -248,6 +259,7 @@ public:
     bool ChooseRandomUpgrade(Player* player, Item* item);
 
     void BuildWeaponUpgradeReqs();
+    void BuildWeaponSpeedUpgradeReqs();
 
     static std::string StatTypeToString(uint32 statType);
     static std::string EquipmentSlotToString(EquipmentSlots slot);
@@ -255,18 +267,27 @@ public:
     static const _ItemStat* GetStatByType(const std::vector<_ItemStat>& statInfo, uint32 statType);
     static std::pair<float, float> GetItemProtoDamage(const ItemTemplate* proto);
     static std::pair<float, float> GetItemProtoDamage(const Item* item);
+    static uint32 GetItemProtoDelay(const ItemTemplate* proto);
+    static uint32 GetItemProtoDelay(const Item* item);
 
     static std::string FormatFloat(float val, uint32 decimals = 2);
     static std::string FormatIncrease(float prev, float next);
+    static std::string FormatDelay(uint32 val);
 
     static int32 CalculateModPct(int32 value, const UpgradeStat* upgradeStat);
     static float CalculateModPctF(float value, const UpgradeStat* upgradeStat);
+    static uint32 CalculatePctDecrease(uint32 value, float pct);
 
     std::vector<const UpgradeStat*> FindUpgradesForItem(const Player* player, const Item* item) const;
-    const UpgradeStat* FindUpgradeForWeapon(const Player* player, const Item* item) const;
+    const UpgradeStat* FindUpgradeForWeapon(const CharacterUpgradeContainer& characterUpgradeContainer, const Player* player, const Item* item) const;
+    const UpgradeStat* FindUpgradeForWeaponDamage(const Player* player, const Item* item) const;
+    const UpgradeStat* FindUpgradeForWeaponSpeed(const Player* player, const Item* item) const;
 
     bool IsInactiveStatUpgrade(const Item* item, const UpgradeStat* upgradeStat) const;
     bool IsInactiveWeaponUpgrade() const;
+    bool IsInactiveWeaponSpeedUpgrade() const;
+
+    void RefreshWeaponSpeed(Player* player);
 public:
     static std::string ItemIcon(const ItemTemplate* proto, uint32 width, uint32 height, int x, int y);
     static std::string ItemIcon(const ItemTemplate* proto);
@@ -298,6 +319,10 @@ private:
     CharacterUpgradeContainer characterWeaponUpgradeData;
     StatRequirementContainer weaponUpgradeReqs;
 
+    UpgradeStatContainer weaponSpeedUpgradeStats;
+    CharacterUpgradeContainer characterWeaponSpeedUpgradeData;
+    StatRequirementContainer weaponSpeedUpgradeReqs;
+
     static bool CompareIdentifier(const Identifier* a, const Identifier* b);
     static std::string CopperToMoneyStr(uint32 money, bool colored);
     static std::string FormatItemLocation(const Player* player, const Item* item);
@@ -308,6 +333,7 @@ private:
     void LoadUpgradeStats();
     void LoadCharacterUpgradeData();
     void LoadCharacterWeaponUpgradeData();
+    void LoadCharacterWeaponSpeedUpgradeData();
     void LoadAllowedItems();
     void LoadAllowedStatsItems();
     void LoadBlacklistedItems();
@@ -331,9 +357,9 @@ private:
 
     const UpgradeStat* FindUpgradeStat(uint32 statId) const;
     const UpgradeStat* FindUpgradeStat(uint32 statType, uint16 rank) const;
-    const UpgradeStat* FindWeaponUpgradeStat(float pct) const;
-    const UpgradeStat* FindNearestWeaponUpgradeStat(float pct) const;
-    const UpgradeStat* FindNextWeaponUpgradeStat(float pct) const;
+    const UpgradeStat* FindWeaponUpgradeStat(const UpgradeStatContainer& upgradeStatContainer, float pct) const;
+    const UpgradeStat* FindNearestWeaponUpgradeStat(const UpgradeStatContainer& upgradeStatContainer, float pct) const;
+    const UpgradeStat* FindNextWeaponUpgradeStat(const UpgradeStatContainer& upgradeStatContainer, float pct) const;
     std::vector<const UpgradeStat*> _FindUpgradesForItem(const CharacterUpgradeContainer& characterUpgradeDataContainer, const Player* player, const Item* item) const;
     const UpgradeStat* FindUpgradeForItem(const Player* player, const Item* item, uint32 statType) const;
     bool MeetsRequirement(const Player* player, const UpgradeStatReq& req) const;
@@ -342,8 +368,10 @@ private:
     void TakeRequirements(Player* player, const UpgradeStat* upgradeStat, const Item* item);
     void TakeRequirements(Player* player, const StatRequirementContainer* reqs);
     void TakeWeaponUpgradeRequirements(Player* player);
+    void TakeWeaponSpeedUpgradeRequirements(Player* player);
     bool PurchaseUpgrade(Player* player);
     bool PurchaseWeaponUpgrade(Player* player);
+    bool PurchaseWeaponSpeedUpgrade(Player* player);
     void AddUpgradedItemToPagedData(const Item* item, const Player* player, PagedData& pagedData, const std::string &from);
     void HandleDataReload(Player* player, bool apply);
     std::vector<Item*> GetPlayerItems(const Player* player, bool inBankAlso) const;
@@ -355,6 +383,7 @@ private:
     void RemoveItemUpgradeFromContainer(CharacterUpgradeContainer& upgradesContainer, Player* player, Item* item);
     void RemoveItemUpgrade(Player* player, Item* item);
     void RemoveWeaponUpgrade(Player* player, Item* item);
+    void RemoveWeaponSpeedUpgrade(Player* player, Item* item);
     bool AddUpgradeForNewItem(Player* player, Item* item, const UpgradeStat* upgrade, const _ItemStat* stat);
     void AddItemUpgradeToDB(const Player* player, const Item* item, const UpgradeStat* upgrade) const;
     const UpgradeStat* FindNearestUpgradeStat(uint32 statType, uint16 rank, const Item* item) const;
@@ -368,7 +397,7 @@ private:
     void BuildRequirementsPage(const Player* player, PagedData& pagedData, const StatRequirementContainer* reqs) const;
     bool PurchaseUpgradeBulk(Player* player);
     bool HandlePurchaseRank(Player* player, Item* item, const UpgradeStat* upgrade);
-    bool HandlePurchaseWeaponUpgrade(Player* player, Item* item, const UpgradeStat* upgrade);
+    bool HandlePurchaseWeaponUpgrade(Player* player, Item* item, const UpgradeStat* upgrade, bool speedUpgrade);
     bool CheckDataValidity() const;
     bool IsValidStatType(uint32 statType) const;
     const StatRequirementContainer* GetStatRequirements(const UpgradeStat* upgrade, const Item* item) const;
@@ -380,13 +409,19 @@ private:
     bool IsAllowedStatType(uint32 statType) const;
     void LoadAllowedStats(const std::string& stats);
 
-    void LoadWeaponUpgradePercents(const std::string& percents);
+    void LoadWeaponUpgradePercents(UpgradeStatContainer& upgradeStats, CharacterUpgradeContainer& characterUpgradeContainer, const std::string& percents);
     bool MeetsWeaponUpgradeRequirement(const Player* player) const;
+    bool MeetsWeaponSpeedUpgradeRequirement(const Player* player) const;
 
     bool PurgeUpgrade(Player* player, Item* item);
     bool PurgeWeaponUpgrade(Player* player, Item* item);
+    bool PurgeWeaponSpeedUpgrade(Player* player, Item* item);
 
     ItemVisualsPriority GetItemVisualsPriority() const;
+
+    void _BuildWeaponPercentUpgradesCatalogue(const Player* player, const Item* item, PagedDataType type);
+
+    void RefreshWeaponSpeed(Player* player, EquipmentSlots slot);
 };
 
 #define sItemUpgrade ItemUpgrade::instance()

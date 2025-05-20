@@ -21,7 +21,13 @@ private:
     static Item* GetPagedDataItem(const ItemUpgrade::PagedData& pagedData, Player* player)
     {
         Item* item = player->GetItemByGuid(pagedData.item.guid);
-        bool validItem = pagedData.type == ItemUpgrade::PAGED_DATA_TYPE_WEAPON_UPGRADE_PERC_INFO ? sItemUpgrade->IsValidWeaponForUpgrade(item, player) : sItemUpgrade->IsValidItemForUpgrade(item, player);
+        bool validItem = false;
+        if (pagedData.type == ItemUpgrade::PAGED_DATA_TYPE_WEAPON_UPGRADE_PERC_INFO)
+            validItem = sItemUpgrade->IsValidWeaponForUpgrade(item, player);
+        else if (pagedData.type == ItemUpgrade::PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_PERC_INFO)
+            validItem = sItemUpgrade->IsValidWeaponForSpeedUpgrade(item, player);
+        else
+            validItem = sItemUpgrade->IsValidItemForUpgrade(item, player);
         if (!validItem)
         {
             ItemUpgrade::SendMessage(player, "Item is no longer available for upgrade.");
@@ -36,6 +42,16 @@ private:
         ClearGossipMenuFor(player);
         AddGossipItemFor(player, GOSSIP_ICON_BATTLE, "Choose a weapon to upgrade", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 9);
         AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "See upgraded weapons", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 10);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<- [Back]", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
+        SendGossipMenuFor(player, DEFAULT_GOSSIP_MESSAGE, creature->GetGUID());
+        return true;
+    }
+
+    bool AddUpgradeWeaponSpeedSubmenu(Player* player, Creature* creature)
+    {
+        ClearGossipMenuFor(player);
+        AddGossipItemFor(player, GOSSIP_ICON_BATTLE, "Choose a weapon to upgrade its speed", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 12);
+        AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "See upgraded weapons", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 13);
         AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<- [Back]", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
         SendGossipMenuFor(player, DEFAULT_GOSSIP_MESSAGE, creature->GetGUID());
         return true;
@@ -66,6 +82,8 @@ public:
             AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "See upgraded items", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 3);
             if (sItemUpgrade->GetBoolConfig(CONFIG_ITEM_UPGRADE_WEAPON_DAMAGE))
                 AddGossipItemFor(player, GOSSIP_ICON_BATTLE, "[Weapon damage upgrade system] ->", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 8);
+            if (sItemUpgrade->GetBoolConfig(CONFIG_ITEM_UPGRADE_WEAPON_SPEED))
+                AddGossipItemFor(player, GOSSIP_ICON_BATTLE, "[Weapon speed upgrade system] ->", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 11);
             AddGossipItemFor(player, GOSSIP_ICON_BATTLE, "Update visual cache", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 4);
 
             if (player->GetSession()->GetSecurity() == SEC_ADMINISTRATOR)
@@ -135,6 +153,18 @@ public:
             else if (action == GOSSIP_ACTION_INFO_DEF + 10)
             {
                 sItemUpgrade->BuildAlreadyUpgradedItemsCatalogue(player, ItemUpgrade::PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK);
+                return sItemUpgrade->AddPagedData(player, creature, 0);
+            }
+            else if (action == GOSSIP_ACTION_INFO_DEF + 11)
+                return AddUpgradeWeaponSpeedSubmenu(player, creature);
+            else if (action == GOSSIP_ACTION_INFO_DEF + 12)
+            {
+                sItemUpgrade->BuildUpgradableWeaponSpeedItemCatalogue(player);
+                return sItemUpgrade->AddPagedData(player, creature, 0);
+            }
+            else if (action == GOSSIP_ACTION_INFO_DEF + 13)
+            {
+                sItemUpgrade->BuildAlreadyUpgradedItemsCatalogue(player, ItemUpgrade::PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_ITEMS_CHECK);
                 return sItemUpgrade->AddPagedData(player, creature, 0);
             }
         }
@@ -211,6 +241,29 @@ public:
         else if (sender == GOSSIP_SENDER_MAIN + 19)
         {
             sItemUpgrade->BuildAlreadyUpgradedItemsCatalogue(player, ItemUpgrade::PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK);
+            return sItemUpgrade->AddPagedData(player, creature, 0);
+        }
+        else if (sender == GOSSIP_SENDER_MAIN + 20)
+            return AddUpgradeWeaponSpeedSubmenu(player, creature);
+        else if (sender == GOSSIP_SENDER_MAIN + 21)
+        {
+            sItemUpgrade->BuildUpgradableWeaponSpeedItemCatalogue(player);
+            return sItemUpgrade->AddPagedData(player, creature, 0);
+        }
+        else if (sender == GOSSIP_SENDER_MAIN + 22)
+        {
+            Item* item = GetPagedDataItem(pagedData, player);
+            if (item == nullptr)
+                return CloseGossip(player, false);
+
+            sItemUpgrade->BuildWeaponSpeedPercentUpgradesCatalogue(player, item);
+            return sItemUpgrade->AddPagedData(player, creature, 0);
+        }
+        else if (sender == GOSSIP_SENDER_MAIN + 23)
+            return AddUpgradeWeaponSpeedSubmenu(player, creature);
+        else if (sender == GOSSIP_SENDER_MAIN + 24)
+        {
+            sItemUpgrade->BuildAlreadyUpgradedItemsCatalogue(player, ItemUpgrade::PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_ITEMS_CHECK);
             return sItemUpgrade->AddPagedData(player, creature, 0);
         }
 

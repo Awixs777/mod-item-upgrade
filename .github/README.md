@@ -92,6 +92,10 @@ There is a configuration option that allows players to restore items to their or
 
 This module adds the possibility to upgrade weapon damage (physical damage, dps - min/max damage). The system is toggleable via the configuration.
 
+## Weapon speed upgrades
+
+This module adds the possibility to upgrade weapon speed (decrease swing delay). The system is toggleable via the configuration.
+
 ## Some photos
 
 ![pic1](https://github.com/silviu20092/mod-item-upgrade/blob/master/pics/pic1.jpg?raw=true)

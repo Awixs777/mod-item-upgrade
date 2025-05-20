@@ -87,9 +87,10 @@ private:
             if (const Item* item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, i))
             {
                 std::vector<const ItemUpgrade::UpgradeStat*> upgrades = sItemUpgrade->FindUpgradesForItem(player, item);
-                const ItemUpgrade::UpgradeStat* weaponUpgrade = sItemUpgrade->FindUpgradeForWeapon(player, item);
+                const ItemUpgrade::UpgradeStat* weaponUpgrade = sItemUpgrade->FindUpgradeForWeaponDamage(player, item);
+                const ItemUpgrade::UpgradeStat* weaponSpeedUpgrade = sItemUpgrade->FindUpgradeForWeaponSpeed(player, item);
 
-                if (!upgrades.empty() || weaponUpgrade != nullptr)
+                if (!upgrades.empty() || weaponUpgrade != nullptr || weaponSpeedUpgrade != nullptr)
                 {
                     upgradedItems++;
                     std::string slot = ItemUpgrade::EquipmentSlotToString((EquipmentSlots)i);
@@ -131,6 +132,26 @@ private:
                             ItemUpgrade::FormatFloat(weaponUpgrade->statModPct),
                             ItemUpgrade::FormatIncrease(dmgInfo.first, upgradedMinDamage),
                             ItemUpgrade::FormatIncrease(dmgInfo.second, upgradedMaxDamage),
+                            statusOss.str());
+                    }
+                    if (weaponSpeedUpgrade != nullptr)
+                    {
+                        if (weaponUpgrade == nullptr)
+                            weaponUpgrades++;
+
+                        uint32 originalDelay = ItemUpgrade::GetItemProtoDelay(item);
+                        uint32 newDelay = sItemUpgrade->HandleWeaponSpeedModifier(player, item);
+
+                        std::ostringstream statusOss;
+                        if (sItemUpgrade->IsInactiveWeaponSpeedUpgrade())
+                            statusOss << "|cffb50505INACTIVE|r";
+                        else
+                            statusOss << "|cff056e3aACTIVE|r";
+
+                        handler->PSendSysMessage("This weapon's speed is upgraded by {}%, [ORIGINAL SPEED {}] [NEW SPEED {}] [{}]",
+                            ItemUpgrade::FormatFloat(weaponSpeedUpgrade->statModPct),
+                            ItemUpgrade::FormatDelay(originalDelay),
+                            ItemUpgrade::FormatDelay(newDelay),
                             statusOss.str());
                     }
                     handler->SendSysMessage("--------------- NEXT ITEM OR END ---------------");
