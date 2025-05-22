@@ -3297,28 +3297,33 @@ void ItemUpgrade::UpdateVisualCache(Player* player)
         upgradeInfo.itemGuid = item->GetGUID();
         upgradeInfo.upgrades = FindUpgradesForItem(player, item);
         upgradeInfo.weaponUpgrade = FindUpgradeForWeapon(characterWeaponUpgradeData, player, item);
+        upgradeInfo.weaponSpeedUpgrade = FindUpgradeForWeaponSpeed(player, item);
         entryUpgradeMap[item->GetEntry()].push_back(upgradeInfo);
     }
 
     auto chooseVisualItem = [&](const uint32 entry) -> const ItemUpgradeInfo* {
         auto emptyUpgrade = [](const ItemUpgradeInfo* itemUpgradeInfo)
         {
-            return itemUpgradeInfo->upgrades.empty() && itemUpgradeInfo->weaponUpgrade == nullptr;
+            return itemUpgradeInfo->upgrades.empty()
+                && itemUpgradeInfo->weaponUpgrade == nullptr
+                && itemUpgradeInfo->weaponSpeedUpgrade == nullptr;
         };
 
         const std::vector<ItemUpgradeInfo>& upgradeInfo = entryUpgradeMap.at(entry);
         const ItemUpgradeInfo* highestStatUpgrade = &upgradeInfo[0];
         const ItemUpgradeInfo* highestWeaponUpgrade = &upgradeInfo[0];
+        const ItemUpgradeInfo* highestWeaponSpeedUpgrade = &upgradeInfo[0];
         for (size_t i = 1; i < upgradeInfo.size(); i++)
         {
             const ItemUpgradeInfo &itemUpgradeInfo = upgradeInfo[i];
             if (itemUpgradeInfo.upgrades.size() > highestStatUpgrade->upgrades.size())
                 highestStatUpgrade = &itemUpgradeInfo;
-            if (itemUpgradeInfo.weaponUpgrade != nullptr && (highestWeaponUpgrade->weaponUpgrade == nullptr || itemUpgradeInfo.weaponUpgrade->statModPct > highestWeaponUpgrade->weaponUpgrade->statModPct)) {
+            if (itemUpgradeInfo.weaponUpgrade != nullptr && (highestWeaponUpgrade->weaponUpgrade == nullptr || itemUpgradeInfo.weaponUpgrade->statModPct > highestWeaponUpgrade->weaponUpgrade->statModPct))
                 highestWeaponUpgrade = &itemUpgradeInfo;
-            }
+            if (itemUpgradeInfo.weaponSpeedUpgrade != nullptr && (highestWeaponSpeedUpgrade->weaponSpeedUpgrade == nullptr || itemUpgradeInfo.weaponSpeedUpgrade->statModPct > highestWeaponSpeedUpgrade->weaponSpeedUpgrade->statModPct))
+                highestWeaponSpeedUpgrade = &itemUpgradeInfo;
         }
-        if (emptyUpgrade(highestStatUpgrade) && emptyUpgrade(highestWeaponUpgrade))
+        if (emptyUpgrade(highestStatUpgrade) && emptyUpgrade(highestWeaponUpgrade) && emptyUpgrade(highestWeaponSpeedUpgrade))
             return &upgradeInfo[0];
 
         if (GetItemVisualsPriority() == PRIORITIZE_STATS)
@@ -3326,13 +3331,19 @@ void ItemUpgrade::UpdateVisualCache(Player* player)
             if (!highestStatUpgrade->upgrades.empty())
                 return highestStatUpgrade;
             else
+            {
                 if (highestWeaponUpgrade->weaponUpgrade != nullptr)
                     return highestWeaponUpgrade;
+                if (highestWeaponSpeedUpgrade->weaponSpeedUpgrade != nullptr)
+                    return highestWeaponSpeedUpgrade;
+            }
         }
         else
         {
             if (highestWeaponUpgrade->weaponUpgrade != nullptr)
                 return highestWeaponUpgrade;
+            else if (highestWeaponSpeedUpgrade->weaponSpeedUpgrade != nullptr)
+                return highestWeaponSpeedUpgrade;
             else
             {
                 if (!highestStatUpgrade->upgrades.empty())

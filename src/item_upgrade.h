@@ -193,6 +193,7 @@ public:
         ObjectGuid itemGuid;
         std::vector<const UpgradeStat*> upgrades;
         const UpgradeStat* weaponUpgrade;
+        const UpgradeStat* weaponSpeedUpgrade;
     };
 
     typedef std::set<uint32> ItemEntryContainer;
