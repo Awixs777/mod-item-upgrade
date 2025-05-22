@@ -3297,8 +3297,6 @@ void ItemUpgrade::UpdateVisualCache(Player* player)
         upgradeInfo.itemGuid = item->GetGUID();
         upgradeInfo.upgrades = FindUpgradesForItem(player, item);
         upgradeInfo.weaponUpgrade = FindUpgradeForWeapon(characterWeaponUpgradeData, player, item);
-        if (upgradeInfo.weaponUpgrade == nullptr)
-            upgradeInfo.weaponUpgrade = FindUpgradeForWeaponSpeed(player, item);
         entryUpgradeMap[item->GetEntry()].push_back(upgradeInfo);
     }
 
