@@ -875,7 +875,7 @@ bool ItemUpgrade::_AddPagedData(Player* player, const PagedData& pagedData, uint
         {
             std::vector<_ItemStat> statTypes = LoadItemStatInfo(item);
             std::ostringstream ossStatTypes;
-            ossStatTypes << "HAS STATS: ";
+            ossStatTypes << "ХАРАКТЕРИСТИКИ: ";
             for (uint32 i = 0; i < statTypes.size(); i++)
             {
                 if (IsAllowedStatType(statTypes[i].ItemStatType))
@@ -896,25 +896,25 @@ bool ItemUpgrade::_AddPagedData(Player* player, const PagedData& pagedData, uint
                 return false;
 
             std::ostringstream oss;
-            oss << "UPGRADE " << StatTypeToString(upgradeStat->statType) << " [RANK " << upgradeStat->statRank << "]";
-            oss << " " << "[" << upgradeStat->statModPct << "% increase - ";
+            oss << "УЛУЧШЕНИЕ " << StatTypeToString(upgradeStat->statType) << " [РАНГ " << upgradeStat->statRank << "]";
+            oss << " " << "[" << upgradeStat->statModPct << "% увеличение - ";
             oss << "|cffb50505" << statInfo->ItemStatValue << "|r --> ";
             oss << "|cff056e3a" << CalculateModPct(statInfo->ItemStatValue, upgradeStat) << "|r]";
 
             const UpgradeStat* currentUpgrade = FindUpgradeForItem(player, item, upgradeStat->statType);
             if (currentUpgrade != nullptr)
-                oss << " [CURRENT: " << CalculateModPct(statInfo->ItemStatValue, currentUpgrade) << "|r]";
+                oss << " [ТЕКУЩИЙ: " << CalculateModPct(statInfo->ItemStatValue, currentUpgrade) << "|r]";
 
             std::pair<uint32, uint32> itemLevel = CalculateItemLevel(player, item, upgradeStat);
             std::ostringstream ilvloss;
-            ilvloss << "[ITEM LEVEL ";
+            ilvloss << "[УРОВЕНЬ ПРЕДМЕТА ";
             ilvloss << "|cffb50505" << itemLevel.first << "|r --> ";
             ilvloss << "|cff056e3a" << itemLevel.second << "|r]";
             itemLevel = CalculateItemLevel(player, item);
-            ilvloss << " [CURRENT: " << itemLevel.second << "]";
-            
-            AddGossipItemFor(player, GOSSIP_ICON_CHAT, oss.str(), GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
-            AddGossipItemFor(player, GOSSIP_ICON_CHAT, ilvloss.str(), GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
+            ilvloss << " [ТЕКУЩИЙ: " << itemLevel.second << "]";
+
+        //    AddGossipItemFor(player, GOSSIP_ICON_CHAT, oss.str(), GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
+        //    AddGossipItemFor(player, GOSSIP_ICON_CHAT, ilvloss.str(), GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
         }
         else if (pagedData.type == PAGED_DATA_TYPE_UPGRADED_ITEMS_STATS)
         {
@@ -922,7 +922,7 @@ bool ItemUpgrade::_AddPagedData(Player* player, const PagedData& pagedData, uint
             uint32 diff = itemLevel.second - itemLevel.first;
 
             std::ostringstream oss;
-            oss << "Item level increased by " << diff;
+            oss << "Уровень предмета увеличен на " << diff;
             oss << " [|cffb50505" << itemLevel.first << "|r --> ";
             oss << " |cff056e3a" << itemLevel.second << "|r]";
 
@@ -932,7 +932,7 @@ bool ItemUpgrade::_AddPagedData(Player* player, const PagedData& pagedData, uint
             if (weaponUpgrade != nullptr)
             {
                 std::ostringstream wuoss;
-                wuoss << "|cff056e3aWEAPON DAMAGE UPGRADED BY " << FormatFloat(weaponUpgrade->statModPct) << "%|r";
+                wuoss << "|cff056e3aУРОН ОРУЖИЯ УЛУЧШЕН НА " << FormatFloat(weaponUpgrade->statModPct) << "%|r";
                 AddGossipItemFor(player, GOSSIP_ICON_CHAT, wuoss.str(), GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
             }
 
@@ -945,20 +945,20 @@ bool ItemUpgrade::_AddPagedData(Player* player, const PagedData& pagedData, uint
             }
 
             if (!item->IsEquipped())
-                AddGossipItemFor(player, GOSSIP_ICON_BATTLE, "[EQUIP ITEM]", GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 1);
+                AddGossipItemFor(player, GOSSIP_ICON_BATTLE, "[ЭКИПИРОВАТЬ ПРЕДМЕТ]", GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 1);
         }
         else if (pagedData.type == PAGED_DATA_TYPE_STAT_UPGRADE_BULK)
         {
             upgrades = FindAllUpgradeableRanks(player, item, pagedData.pct);
             std::ostringstream oss;
             if (upgrades.empty())
-                oss << "[ITEM LEVEL |cffb50505won't|r increase, no upgrades to apply]";
+                oss << "[УРОВЕНЬ ПРЕДМЕТА |cffb50505не увеличится|r, нет улучшений для применения]";
             else
             {
                 std::pair<uint32, uint32> ilvl = CalculateItemLevel(player, item, upgrades);
                 std::pair<uint32, uint32> currentIlvl = CalculateItemLevel(player, item);
-                oss << "[ITEM LEVEL |cffb50505" << ilvl.first << "|r --> " << "|cff056e3a" << ilvl.second << "|r]";
-                oss << " [CURRENT: " << currentIlvl.second << "]";
+                oss << "[УРОВЕНЬ ПРЕДМЕТА |cffb50505" << ilvl.first << "|r --> " << "|cff056e3a" << ilvl.second << "|r]";
+                oss << " [ТЕКУЩИЙ: " << currentIlvl.second << "]";
             }
 
             AddGossipItemFor(player, GOSSIP_ICON_CHAT, oss.str(), GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
@@ -966,7 +966,7 @@ bool ItemUpgrade::_AddPagedData(Player* player, const PagedData& pagedData, uint
     }
     else if (pagedData.type == PAGED_DATA_TYPE_UPGRADED_ITEMS)
     {
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Total items upgraded: " + Acore::ToString(pagedData.data.size()), GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Всего улучшенных предметов: " + Acore::ToString(pagedData.data.size()), GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
 
         uint32 totalUpgrades = 0;
         for (const Identifier* idnt : pagedData.data)
@@ -977,15 +977,15 @@ bool ItemUpgrade::_AddPagedData(Player* player, const PagedData& pagedData, uint
                 totalUpgrades += FindUpgradesForItem(player, item).size();
         }
 
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Total upgrades: " + Acore::ToString(totalUpgrades), GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Всего улучшений: " + Acore::ToString(totalUpgrades), GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
     }
     else if (pagedData.type == PAGED_DATA_TYPE_ITEMS_FOR_PURGE)
     {
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505PURGE UPGRADES|r", GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505ОЧИСТКА УЛУЧШЕНИЙ|r", GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
         const ItemTemplate* proto = sObjectMgr->GetItemTemplate((uint32)GetIntConfig(CONFIG_ITEM_UPGRADE_PURGE_TOKEN));
         if (proto != nullptr)
         {
-            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Will receive after purge:", GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
+            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Получите после очистки:", GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
 
             std::ostringstream oss;
             oss << ItemIcon(proto);
@@ -994,8 +994,8 @@ bool ItemUpgrade::_AddPagedData(Player* player, const PagedData& pagedData, uint
             AddGossipItemFor(player, GOSSIP_ICON_VENDOR, oss.str(), GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
         }
         if (GetBoolConfig(CONFIG_ITEM_UPGRADE_REFUND_ALL_ON_PURGE))
-            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cff056e3aWILL REFUND EVERYTHING ON PURGE|r", GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Choose an upgraded item to purge:", GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
+            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cff056e3aВСЁ БУДЕТ ВОЗВРАЩЕНО ПРИ ОЧИСТКЕ|r", GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Выберите улучшенный предмет для очистки:", GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page);
     }
 
     for (uint32 i = lowIndex; i <= highIndex; i++)
@@ -1004,33 +1004,33 @@ bool ItemUpgrade::_AddPagedData(Player* player, const PagedData& pagedData, uint
         if (pagedData.type != PAGED_DATA_TYPE_ITEMS_FOR_PURGE)
             AddGossipItemFor(player, identifier->optionIcon, identifier->uiName, GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + identifier->id);
         else
-            AddGossipItemFor(player, identifier->optionIcon, identifier->uiName, GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + identifier->id, "Are you sure you want to remove all upgrades? This cannot be undone!", 0, false);
+            AddGossipItemFor(player, identifier->optionIcon, identifier->uiName, GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + identifier->id, "Вы уверены, что хотите удалить все улучшения? Это действие необратимо!", 0, false);
     }
 
     if (pagedData.type == PAGED_DATA_TYPE_REQS)
-        AddGossipItemFor(player, GOSSIP_ICON_TRAINER, (MeetsRequirement(player, pagedData.upgradeStat, item) ? "|cff056e3a[PURCHASE]|r" : "|cffb50505[PURCHASE]|r"), GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 1, "Are you sure you want to upgrade?", 0, false);
+        AddGossipItemFor(player, GOSSIP_ICON_TRAINER, (MeetsRequirement(player, pagedData.upgradeStat, item) ? "|cff056e3a[КУПИТЬ]|r" : "|cffb50505[КУПИТЬ]|r"), GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 1, "Вы уверены, что хотите улучшить?", 0, false);
 
     if (pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_PERC_INFO)
-        AddGossipItemFor(player, GOSSIP_ICON_TRAINER, (MeetsWeaponUpgradeRequirement(player) ? "|cff056e3a[UPGRADE]|r" : "|cffb50505[UPGRADE]|r"), GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 1, "Are you sure you want to upgrade this weapon?", 0, false);
+        AddGossipItemFor(player, GOSSIP_ICON_TRAINER, (MeetsWeaponUpgradeRequirement(player) ? "|cff056e3a[УЛУЧШИТЬ]|r" : "|cffb50505[УЛУЧШИТЬ]|r"), GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 1, "Вы уверены, что хотите улучшить это оружие?", 0, false);
 
     if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_PERC_INFO)
         AddGossipItemFor(player, GOSSIP_ICON_TRAINER, (MeetsWeaponSpeedUpgradeRequirement(player) ? "|cff056e3a[UPGRADE]|r" : "|cffb50505[UPGRADE]|r"), GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 1, "Are you sure you want to upgrade the speed of this weapon?", 0, false);
 
     if (!upgrades.empty())
     {
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "[ALL REQUIREMENTS]", GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 1);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "[ВСЕ ТРЕБОВАНИЯ]", GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 1);
         StatRequirementContainer reqs = BuildBulkRequirements(upgrades, item);
-        AddGossipItemFor(player, GOSSIP_ICON_TRAINER, (MeetsRequirement(player, &reqs) ? "|cff056e3a[PURCHASE ALL]|r" : "|cffb50505[PURCHASE ALL]|r"), GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 2, "Are you sure you want to upgrade?", 0, false);
+        AddGossipItemFor(player, GOSSIP_ICON_TRAINER, (MeetsRequirement(player, &reqs) ? "|cff056e3a[КУПИТЬ ВСЕ]|r" : "|cffb50505[КУПИТЬ ВСЕ]|r"), GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 2, "Вы уверены, что хотите улучшить?", 0, false);
     }
 
     if (pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK_INFO)
-        AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "|cffb50505REMOVE UPGRADE|r", GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 1, "Are you sure you want to remove this weapon upgrade? This cannot be undone!", 0, false);
+        AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "|cffb50505УДАЛИТЬ УЛУЧШЕНИЕ|r", GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 1, "Вы уверены, что хотите удалить это улучшение оружия? Это действие необратимо!", 0, false);
 
     if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_ITEMS_CHECK_INFO)
         AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "|cffb50505REMOVE SPEED UPGRADE|r", GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + 1, "Are you sure you want to remove this weapon speed upgrade? This cannot be undone!", 0, false);
 
     if (page + 1 < pagedData.totalPages)
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "[Next] ->", GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page + 1);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "[Далее] ->", GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page + 1);
 
     uint32 pageZeroSender = GOSSIP_SENDER_MAIN;
     if (pagedData.type == PAGED_DATA_TYPE_STATS)
@@ -1066,10 +1066,11 @@ bool ItemUpgrade::_AddPagedData(Player* player, const PagedData& pagedData, uint
     else if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_UPGRADE_ITEMS_CHECK_INFO)
         pageZeroSender += 24;
 
-    AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<- [Back]", page == 0 ? pageZeroSender : GOSSIP_SENDER_MAIN + 2, page == 0 ? GOSSIP_ACTION_INFO_DEF : GOSSIP_ACTION_INFO_DEF + page - 1);
+    AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<- [Назад]", page == 0 ? pageZeroSender : GOSSIP_SENDER_MAIN + 2, page == 0 ? GOSSIP_ACTION_INFO_DEF : GOSSIP_ACTION_INFO_DEF + page - 1);
 
     return true;
 }
+
 
 bool ItemUpgrade::AddPagedData(Player* player, Creature* creature, uint32 page)
 {
@@ -1096,7 +1097,7 @@ void ItemUpgrade::NoPagedData(Player* player, const PagedData& pagedData) const
 {
     if (pagedData.type == PAGED_DATA_TYPE_ITEMS || pagedData.type == PAGED_DATA_TYPE_UPGRADED_ITEMS || pagedData.type == PAGED_DATA_TYPE_ITEMS_BULK || pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS
         || pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK || pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_ITEMS_CHECK_INFO)
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505NOTHING ON THIS PAGE|r", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505НИЧЕГО НЕТ|r", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
     else if (pagedData.type == PAGED_DATA_TYPE_STATS || pagedData.type == PAGED_DATA_TYPE_STATS_BULK || pagedData.type == PAGED_DATA_TYPE_STAT_UPGRADE_BULK
         || pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_PERCS || pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_PERC_INFO)
     {
@@ -1104,14 +1105,15 @@ void ItemUpgrade::NoPagedData(Player* player, const PagedData& pagedData) const
         bool validItem = pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_PERCS || pagedData.type == PAGED_DATA_TYPE_WEAPON_UPGRADE_PERC_INFO ? IsValidWeaponForUpgrade(item, player) : IsValidItemForUpgrade(item, player);
         if (validItem)
             AddGossipItemFor(player, GOSSIP_ICON_VENDOR, ItemLinkForUI(item, player), GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505ITEM CAN'T BE UPGRADED|r", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505ПРЕДМЕТ НЕЛЬЗЯ УЛУЧШИТЬ|r", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
     }
     else if (pagedData.type == PAGED_DATA_TYPE_ITEMS_FOR_PURGE)
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505NOTHING TO PURGE|r", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505НЕЧЕГО ОЧИСТИТЬ|r", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
     else if (pagedData.type == PAGED_DATA_TYPE_WEAPON_SPEED_ITEMS)
         AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505NOTHING ON THIS PAGE, ONLY EQUIPPED ITEMS WILL BE SHOWN|r", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
-    AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<- [First Page]", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
+    AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<- [Первая страница]", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
 }
+
 
 bool ItemUpgrade::TakePagedDataAction(Player* player, Creature* creature, uint32 action)
 {
@@ -1999,27 +2001,27 @@ void ItemUpgrade::BuildAlreadyUpgradedItemsCatalogue(const Player* player, Paged
 
     for (uint8 i = INVENTORY_SLOT_ITEM_START; i < INVENTORY_SLOT_ITEM_END; i++)
         if (Item* item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, i))
-            AddUpgradedItemToPagedData(item, player, pagedData, "backpack");
+            AddUpgradedItemToPagedData(item, player, pagedData, "рюкзак");
 
     for (uint8 i = INVENTORY_SLOT_BAG_START; i < INVENTORY_SLOT_BAG_END; i++)
         if (Bag* bag = player->GetBagByPos(i))
             for (uint32 j = 0; j < bag->GetBagSize(); j++)
                 if (Item* item = player->GetItemByPos(i, j))
-                    AddUpgradedItemToPagedData(item, player, pagedData, "bags");
+                    AddUpgradedItemToPagedData(item, player, pagedData, "сумка");
 
     for (uint8 i = EQUIPMENT_SLOT_START; i < EQUIPMENT_SLOT_END; i++)
         if (Item* item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, i))
-            AddUpgradedItemToPagedData(item, player, pagedData, "equipped");
+            AddUpgradedItemToPagedData(item, player, pagedData, "одет");
 
     for (uint8 i = BANK_SLOT_ITEM_START; i < BANK_SLOT_ITEM_END; i++)
         if (Item* item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, i))
-            AddUpgradedItemToPagedData(item, player, pagedData, "bank");
+            AddUpgradedItemToPagedData(item, player, pagedData, "банк");
 
     for (uint8 i = BANK_SLOT_BAG_START; i < BANK_SLOT_BAG_END; i++)
         if (Bag* bag = player->GetBagByPos(i))
             for (uint32 j = 0; j < bag->GetBagSize(); j++)
                 if (Item* item = player->GetItemByPos(i, j))
-                    AddUpgradedItemToPagedData(item, player, pagedData, "bank bags");
+                    AddUpgradedItemToPagedData(item, player, pagedData, "банк сумка");
 
     pagedData.SortAndCalculateTotals();
 }
@@ -2815,20 +2817,21 @@ std::unordered_map<uint32, const ItemUpgrade::UpgradeStat*> ItemUpgrade::FindAll
 {
     static std::unordered_map<uint32, std::string> statTypeToStrMap =
     {
-        {ITEM_MOD_MANA, "Mana"}, {ITEM_MOD_HEALTH, "Health"}, {ITEM_MOD_AGILITY, "Agility"},
-        {ITEM_MOD_STRENGTH, "Strength"}, {ITEM_MOD_INTELLECT, "Intellect"}, {ITEM_MOD_SPIRIT, "Spirit"},
-        {ITEM_MOD_STAMINA, "Stamina"}, {ITEM_MOD_DEFENSE_SKILL_RATING, "Defense Rating"}, {ITEM_MOD_DODGE_RATING, "Dodge Rating"},
-        {ITEM_MOD_PARRY_RATING, "Parry Rating"}, {ITEM_MOD_BLOCK_RATING, "Block Rating"}, {ITEM_MOD_HIT_MELEE_RATING, "Melee Hit Rating"},
-        {ITEM_MOD_HIT_RANGED_RATING, "Ranged Hit Rating"}, {ITEM_MOD_HIT_SPELL_RATING, "Spell Hit Rating"}, {ITEM_MOD_CRIT_MELEE_RATING, "Melee Crit Rating"},
-        {ITEM_MOD_CRIT_RANGED_RATING, "Ranged Crit Rating"}, {ITEM_MOD_CRIT_SPELL_RATING, "Spell Crit Rating"}, {ITEM_MOD_HIT_TAKEN_MELEE_RATING, "Melee Hit Taken Rating"},
-        {ITEM_MOD_HIT_TAKEN_RANGED_RATING, "Ranged Hit Taken Rating"}, {ITEM_MOD_HIT_TAKEN_SPELL_RATING, "Spell Hit Taken Rating"}, {ITEM_MOD_CRIT_TAKEN_MELEE_RATING, "Melee Crit Taken Rating"},
-        {ITEM_MOD_CRIT_TAKEN_RANGED_RATING, "Ranged Crit Taken Rating"}, {ITEM_MOD_CRIT_TAKEN_SPELL_RATING, "Spell Crit Taken Rating"}, {ITEM_MOD_HASTE_MELEE_RATING, "Melee Haste Rating"},
-        {ITEM_MOD_HASTE_RANGED_RATING, "Ranged Haste Rating"}, {ITEM_MOD_HASTE_SPELL_RATING, "Spell Haste Rating"}, {ITEM_MOD_HIT_RATING, "Hit Rating"},
-        {ITEM_MOD_CRIT_RATING, "Crit Rating"}, {ITEM_MOD_HIT_TAKEN_RATING, "Hit Taken Rating"}, {ITEM_MOD_CRIT_TAKEN_RATING, "Crit Taken Rating"},
-        {ITEM_MOD_RESILIENCE_RATING, "Resilience Rating"}, {ITEM_MOD_HASTE_RATING, "Haste Rating"}, {ITEM_MOD_EXPERTISE_RATING, "Expertise"},
-        {ITEM_MOD_ATTACK_POWER, "Attack Power"}, {ITEM_MOD_RANGED_ATTACK_POWER, "Ranged Attack Power"}, {ITEM_MOD_MANA_REGENERATION, "Mana Regen"},
-        {ITEM_MOD_ARMOR_PENETRATION_RATING, "Armor Penetration"}, {ITEM_MOD_SPELL_POWER, "Spell Power"}, {ITEM_MOD_HEALTH_REGEN, "HP Regen"},
-        {ITEM_MOD_SPELL_PENETRATION, "Spell Penetration"}, {ITEM_MOD_BLOCK_VALUE, "Block Value"}
+{ITEM_MOD_MANA, "Мана"}, {ITEM_MOD_HEALTH, "Здоровье"}, {ITEM_MOD_AGILITY, "Ловкость"},
+{ITEM_MOD_STRENGTH, "Сила"}, {ITEM_MOD_INTELLECT, "Интеллект"}, {ITEM_MOD_SPIRIT, "Дух"},
+{ITEM_MOD_STAMINA, "Выносливость"}, {ITEM_MOD_DEFENSE_SKILL_RATING, "Рейтинг защиты"}, {ITEM_MOD_DODGE_RATING, "Рейтинг уклонения"},
+{ITEM_MOD_PARRY_RATING, "Рейтинг парирования"}, {ITEM_MOD_BLOCK_RATING, "Рейтинг блока"}, {ITEM_MOD_HIT_MELEE_RATING, "Рейтинг попадания (ближний бой)"},
+{ITEM_MOD_HIT_RANGED_RATING, "Рейтинг попадания (дальний бой)"}, {ITEM_MOD_HIT_SPELL_RATING, "Рейтинг попадания (заклинания)"}, {ITEM_MOD_CRIT_MELEE_RATING, "Рейтинг крит. удара (ближний бой)"},
+{ITEM_MOD_CRIT_RANGED_RATING, "Рейтинг крит. удара (дальний бой)"}, {ITEM_MOD_CRIT_SPELL_RATING, "Рейтинг крит. удара (заклинания)"}, {ITEM_MOD_HIT_TAKEN_MELEE_RATING, "Рейтинг полученных попаданий (ближний бой)"},
+{ITEM_MOD_HIT_TAKEN_RANGED_RATING, "Рейтинг полученных попаданий (дальний бой)"}, {ITEM_MOD_HIT_TAKEN_SPELL_RATING, "Рейтинг полученных попаданий (заклинания)"}, {ITEM_MOD_CRIT_TAKEN_MELEE_RATING, "Рейтинг полученных крит. ударов (ближний бой)"},
+{ITEM_MOD_CRIT_TAKEN_RANGED_RATING, "Рейтинг полученных крит. ударов (дальний бой)"}, {ITEM_MOD_CRIT_TAKEN_SPELL_RATING, "Рейтинг полученных крит. ударов (заклинания)"}, {ITEM_MOD_HASTE_MELEE_RATING, "Рейтинг скорости атаки (ближний бой)"},
+{ITEM_MOD_HASTE_RANGED_RATING, "Рейтинг скорости атаки (дальний бой)"}, {ITEM_MOD_HASTE_SPELL_RATING, "Рейтинг скорости заклинаний"}, {ITEM_MOD_HIT_RATING, "Рейтинг попадания"},
+{ITEM_MOD_CRIT_RATING, "Рейтинг крит. удара"}, {ITEM_MOD_HIT_TAKEN_RATING, "Рейтинг полученных попаданий"}, {ITEM_MOD_CRIT_TAKEN_RATING, "Рейтинг полученных крит. ударов"},
+{ITEM_MOD_RESILIENCE_RATING, "Рейтинг стойкости"}, {ITEM_MOD_HASTE_RATING, "Рейтинг скорости"}, {ITEM_MOD_EXPERTISE_RATING, "Мастерство"},
+{ITEM_MOD_ATTACK_POWER, "Сила атаки"}, {ITEM_MOD_RANGED_ATTACK_POWER, "Сила атаки (дальний бой)"}, {ITEM_MOD_MANA_REGENERATION, "Восстановление маны"},
+{ITEM_MOD_ARMOR_PENETRATION_RATING, "Проникновение брони"}, {ITEM_MOD_SPELL_POWER, "Сила заклинаний"}, {ITEM_MOD_HEALTH_REGEN, "Восстановление здоровья"},
+{ITEM_MOD_SPELL_PENETRATION, "Пробивание заклинаний"}, {ITEM_MOD_BLOCK_VALUE, "Значение блока"}
+
     };
 
     if (statTypeToStrMap.find(statType) != statTypeToStrMap.end())
@@ -3652,13 +3655,13 @@ bool ItemUpgrade::AddUpgradeForNewItem(Player* player, Item* item, const Upgrade
     upgrades.push_back(newUpgrade);
 
     std::ostringstream oss;
-    oss << "|cffeb891a[ITEM UPGRADES SYSTEM]:|r";
+    oss << "|cffeb891a[УЛУЧШЕНИЕ ПРЕДМЕТА]:|r";
     oss << " " << ItemLink(player, item);
-    oss << " had " << StatTypeToString(upgrade->statType) << " upgraded to RANK " << upgrade->statRank << ".";
-    oss << " Increase by " << upgrade->statModPct << "% [";
+    oss << " " << StatTypeToString(upgrade->statType) << " улучшена до РАНГ: " << upgrade->statRank << ".";
+    oss << " На " << upgrade->statModPct << "% [";
     oss << stat->ItemStatValue << " --> " << CalculateModPct(stat->ItemStatValue, upgrade) << "]";
     std::pair<uint32, uint32> itemLevel = CalculateItemLevel(player, item);
-    oss << " [New ILVL: " << itemLevel.second << "]";
+ //   oss << " [New ILVL: " << itemLevel.second << "]";
     SendMessage(player, oss.str());
 
     SendItemPacket(player, item);

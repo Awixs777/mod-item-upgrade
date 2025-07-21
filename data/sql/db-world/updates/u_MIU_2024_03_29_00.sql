@@ -1,4 +1,4 @@
-SET @Entry = 200003;
+SET @Entry = 190000;
 SET @Name = "Master";
 SET @Subname = "Item Upgrades";
 

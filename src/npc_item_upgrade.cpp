@@ -1,5 +1,5 @@
 /*
- * Credits: silviu20092
+ * Кредиты: silviu20092
  */
 
 #include "ScriptMgr.h"
@@ -30,7 +30,7 @@ private:
             validItem = sItemUpgrade->IsValidItemForUpgrade(item, player);
         if (!validItem)
         {
-            ItemUpgrade::SendMessage(player, "Item is no longer available for upgrade.");
+            ItemUpgrade::SendMessage(player, "Предмет больше не доступен для улучшения.");
             return nullptr;
         }
 
@@ -40,9 +40,9 @@ private:
     bool AddUpgradeWeaponsSubmenu(Player* player, Creature* creature)
     {
         ClearGossipMenuFor(player);
-        AddGossipItemFor(player, GOSSIP_ICON_BATTLE, "Choose a weapon to upgrade", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 9);
-        AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "See upgraded weapons", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 10);
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<- [Back]", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
+        AddGossipItemFor(player, GOSSIP_ICON_BATTLE, "Выберите оружие для улучшения", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 9);
+        AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Посмотреть улучшенное оружие", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 10);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<- [Назад]", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
         SendGossipMenuFor(player, DEFAULT_GOSSIP_MESSAGE, creature->GetGUID());
         return true;
     }
@@ -65,31 +65,31 @@ public:
     {
         if (sItemUpgrade->GetReloading())
         {
-            ItemUpgrade::SendMessage(player, "Item Upgrade data is being reloaded by an administrator, please retry.");
+            ItemUpgrade::SendMessage(player, "Данные улучшения предметов перезагружаются администратором, попробуйте ещё раз.");
             return CloseGossip(player);
         }
 
         sItemUpgrade->GetPagedData(player).reloaded = false;
 
         if (!sItemUpgrade->GetBoolConfig(CONFIG_ITEM_UPGRADE_ENABLED))
-            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505NOT AVAILABLE|r", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
+            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505НЕ ДОСТУПНО|r", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
         else
         {
-            AddGossipItemFor(player, GOSSIP_ICON_MONEY_BAG, "Choose an item to upgrade (by stat, one-by-one)", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 2);
-            AddGossipItemFor(player, GOSSIP_ICON_MONEY_BAG, "Choose an item to upgrade (all stats at once)", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 7);
+            AddGossipItemFor(player, GOSSIP_ICON_MONEY_BAG, "Выберите предмет для улучшения", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 2);
+           // AddGossipItemFor(player, GOSSIP_ICON_MONEY_BAG, "Выберите предмет для улучшения (все характеристики сразу)", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 7);
             if (sItemUpgrade->GetBoolConfig(CONFIG_ITEM_UPGRADE_ALLOW_PURGE))
-                AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Purge upgrades", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 6);
-            AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "See upgraded items", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 3);
+                AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Сбросить улучшения", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 6);
+            AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Посмотреть улучшенные предметы", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 3);
             if (sItemUpgrade->GetBoolConfig(CONFIG_ITEM_UPGRADE_WEAPON_DAMAGE))
-                AddGossipItemFor(player, GOSSIP_ICON_BATTLE, "[Weapon damage upgrade system] ->", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 8);
-            if (sItemUpgrade->GetBoolConfig(CONFIG_ITEM_UPGRADE_WEAPON_SPEED))
-                AddGossipItemFor(player, GOSSIP_ICON_BATTLE, "[Weapon speed upgrade system] ->", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 11);
-            AddGossipItemFor(player, GOSSIP_ICON_BATTLE, "Update visual cache", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 4);
+                AddGossipItemFor(player, GOSSIP_ICON_BATTLE, "[Система улучшения урона оружия] ->", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 8);
+			if (sItemUpgrade->GetBoolConfig(CONFIG_ITEM_UPGRADE_WEAPON_SPEED))
+                AddGossipItemFor(player, GOSSIP_ICON_BATTLE, "[Система улучшения скорости оружия] ->", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 11);
+            AddGossipItemFor(player, GOSSIP_ICON_BATTLE, "Обновить визуальный кэш", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 4);
 
             if (player->GetSession()->GetSecurity() == SEC_ADMINISTRATOR)
-                AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Lock for database edit", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 5, "The NPC will no longer be available to players until you release the lock with .item_upgrade reload command.", 0, false);
+                AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Заблокировать для редактирования БД", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 5, "Этот NPC больше не будет доступен игрокам, пока вы не снимете блокировку командой .item_upgrade reload.", 0, false);
         }
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Nevermind...", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Не важно...", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
         SendGossipMenuFor(player, DEFAULT_GOSSIP_MESSAGE, creature->GetGUID());
         return true;
     }
@@ -99,7 +99,7 @@ public:
         ItemUpgrade::PagedData& pagedData = sItemUpgrade->GetPagedData(player);
         if (sItemUpgrade->GetReloading() || pagedData.reloaded)
         {
-            ItemUpgrade::SendMessage(player, "Item Upgrade data is being reloaded by an administrator, please retry.");
+            ItemUpgrade::SendMessage(player, "Данные улучшения предметов перезагружаются администратором, попробуйте ещё раз.");
             return CloseGossip(player, false);
         }
 
