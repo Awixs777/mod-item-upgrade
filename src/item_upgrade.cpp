@@ -1856,18 +1856,19 @@ void ItemUpgrade::HandleItemRemove(Player* player, Item* item)
     bool hasItemUpgrades = !FindUpgradesForItem(player, item).empty();
     bool hasWeaponUpgrade = FindUpgradeForWeapon(characterWeaponUpgradeData, player, item) != nullptr;
     bool hasWeaponSpeedUpgrade = FindUpgradeForWeaponSpeed(player, item) != nullptr;
+
     if (hasItemUpgrades || hasWeaponUpgrade || hasWeaponSpeedUpgrade)
     {
         player->_ApplyItemMods(item, item->GetSlot(), false);
-        if (hasItemUpgrades)
-            RemoveItemUpgrade(player, item);
-        if (hasWeaponUpgrade)
-            RemoveWeaponUpgrade(player, item);
-        if (hasWeaponSpeedUpgrade)
-            RemoveWeaponSpeedUpgrade(player, item);
+        if (hasItemUpgrades)      RemoveItemUpgrade(player, item);
+        if (hasWeaponUpgrade)     RemoveWeaponUpgrade(player, item);
+        if (hasWeaponSpeedUpgrade)RemoveWeaponSpeedUpgrade(player, item);
         player->_ApplyItemMods(item, item->GetSlot(), true);
 
+        //Обновляем статы персонажа и оружия
+        player->UpdateAllStats();
         RefreshWeaponSpeed(player);
+        UpdateVisualCache(player);
     }
 }
 
